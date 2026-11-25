@@ -123,7 +123,7 @@ const sb = supabase.createClient('https://tjglotnquszxtuesyayi.supabase.co', 'sb
 const $ = id => document.getElementById(id);
 const h = (t, p = {}, ...c) => { const e = Object.assign(document.createElement(t), p); e.append(...c); return e; };
 const byName = (a, b) => a.character_name.localeCompare(b.character_name, 'fr');
-const DAY = 864e5, mail = p => p.trim().toLowerCase().replace(/\s+/g, '') + '@rp.example.com';
+const DAY = 864e5, mail = p => { p = p.trim().toLowerCase().replace(/\s+/g, ''); return p.includes('@') ? p : p + '@rp.example.com'; };
 let isAdmin = false, editingNote = null, me, rooms = [], room, banners = [], channel, seenCut, editingBanner = null, draft = null, draftTimer;
 const imgs = {};
 
@@ -181,7 +181,7 @@ $('bText').oninput = () => render($('bText').value, $('bPrev'));
 $('login').onsubmit = async e => {
   e.preventDefault();
   const { error } = await sb.auth.signInWithPassword({ email: mail($('pseudo').value), password: $('pass').value });
-  if (error) $('loginErr').textContent = 'Pseudo ou mot de passe incorrect.'; else start();
+  if (error) $('loginErr').textContent = 'Connexion impossible (' + error.message + ').'; else start();
 };
 $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 async function start() {
