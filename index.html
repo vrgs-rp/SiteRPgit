@@ -30,6 +30,7 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
 .badge,.new{background:var(--link);color:#10201f;border-radius:10px;padding:0 .5rem;font-size:.8rem;margin-left:.4rem}
 .msg{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.7rem}
 .msg header{color:var(--muted);font-size:.85rem;margin-bottom:.3rem}
+.msg header strong{color:var(--text);font-size:1rem}
 .msg .row{margin-top:1rem}
 .body{white-space:pre-wrap;overflow-wrap:anywhere}
 .body img{height:56px;vertical-align:middle;margin:0 .3rem;cursor:zoom-in;border-radius:2px}
@@ -61,6 +62,7 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
     <div id="rooms" style="display:grid;gap:.3rem"></div>
     <button class="alt" id="newRoom">Nouveau RP</button>
     <button class="alt" id="toBanners">Mes bannières</button>
+    <button class="alt" id="toNotes">Notes</button>
     <button class="alt" id="logout">Se déconnecter</button>
   </aside>
 
@@ -70,7 +72,7 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
   </main>
 
   <main id="roomView" hidden>
-    <h2 id="roomTitle"></h2>
+    <div class="row"><h2 id="roomTitle"></h2><button class="alt" id="delRoom" hidden>Supprimer ce RP</button></div>
     <div class="row"><input id="search" placeholder="Rechercher dans ce RP…" style="max-width:320px"><button class="alt" id="clearSearch">Effacer</button></div>
     <div id="msgs" style="display:grid;gap:.6rem"></div>
     <div>
@@ -92,6 +94,17 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
     </div>
   </main>
 
+  <main id="notesView" hidden>
+    <h2>Notes</h2>
+    <div class="msg"><strong>À quoi servent les notes ?</strong>
+      <p class="hint">Cet espace est privé : toi seul vois tes notes. Garde-y des idées pour des RP à venir, des images intéressantes mises de côté, des détails de personnages ou tout ce que tu veux retrouver facilement.</p></div>
+    <input id="nTitle" placeholder="Titre de la note">
+    <textarea id="nText" placeholder="Écris ta note…"></textarea>
+    <div class="row"><label class="filebtn">Insérer une image<input type="file" id="nFile" accept="image/*"></label><button id="nSave">Enregistrer la note</button><button class="alt" id="nCancel">Annuler la modification</button></div>
+    <div class="preview body" id="nPrev"></div>
+    <div id="nList" style="display:grid;gap:.6rem"></div>
+  </main>
+
   <main id="bannerView" hidden>
     <h2>Mes bannières</h2>
     <select id="bRoom" aria-label="RP de la bannière"></select>
@@ -111,7 +124,7 @@ const $ = id => document.getElementById(id);
 const h = (t, p = {}, ...c) => { const e = Object.assign(document.createElement(t), p); e.append(...c); return e; };
 const byName = (a, b) => a.character_name.localeCompare(b.character_name, 'fr');
 const DAY = 864e5, mail = p => p.trim().toLowerCase().replace(/\s+/g, '') + '@rp.example.com';
-let me, rooms = [], room, banners = [], channel, seenCut, editingBanner = null, draft = null, draftTimer;
+let isAdmin = false, editingNote = null, me, rooms = [], room, banners = [], channel, seenCut, editingBanner = null, draft = null, draftTimer;
 const imgs = {};
 
 // ---------- Rendu sûr : texte + jetons [img:id] + liens, jamais de HTML ----------
@@ -176,12 +189,14 @@ async function start() {
   me = data.session.user; $('login').hidden = true; $('app').hidden = false;
   const { data: p } = await sb.from('profiles').select('pseudo').eq('id', me.id).maybeSingle();
   $('who').textContent = p ? p.pseudo : '';
+  const { data: ad } = await sb.from('admins').select('user_id').eq('user_id', me.id).maybeSingle(); isAdmin = !!ad;
   await sb.from('drafts').delete().lt('updated_at', new Date(Date.now() - 3 * DAY).toISOString());
   await loadRooms(); await loadBanners(); show('home');
 }
-function show(v) { ['home', 'room', 'banner'].forEach(n => $(n + 'View').hidden = n !== v); if (v === 'home') loadRooms(); }
+function show(v) { ['home', 'room', 'banner', 'notes'].forEach(n => $(n + 'View').hidden = n !== v); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); }
 $('toHome').onclick = () => show('home');
 $('toBanners').onclick = () => show('banner');
+$('toNotes').onclick = () => show('notes');
 
 // ---------- RP et indicateurs de nouveaux messages ----------
 async function loadRooms() {
@@ -193,7 +208,7 @@ async function loadRooms() {
   }));
   $('rooms').replaceChildren(...rooms.map(r => h('button', { className: 'room' + (room && room.id === r.id ? ' on' : ''), onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread })] : []))));
   $('homeCards').replaceChildren(...rooms.map(r => h('button', { className: 'card', onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread + ' nouveau' + (r.unread > 1 ? 'x' : '') })] : []))),
-    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'));
+    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'), h('button', { className: 'card alt', onclick: () => show('notes') }, 'Notes'));
   for (const id of ['pRoom', 'bRoom']) {
     const cur = $(id).value; $(id).replaceChildren(...rooms.map(r => new Option(r.title, r.id)), ...(id === 'bRoom' ? [new Option('Sans RP', '')] : [])); if (cur !== '') $(id).value = cur;
   }
@@ -209,7 +224,7 @@ const markRead = id => sb.from('room_reads').upsert({ user_id: me.id, room_id: i
 
 async function openRoom(r) {
   if (room && $('msgText').value.trim()) await saveDraft();
-  room = r; $('roomTitle').textContent = r.title; $('msgText').value = ''; $('search').value = ''; $('msgPrev').replaceChildren(); countChars();
+  room = r; $('delRoom').hidden = !isAdmin; $('roomTitle').textContent = r.title; $('msgText').value = ''; $('search').value = ''; $('msgPrev').replaceChildren(); countChars();
   $('pRoom').value = r.id; drawPicker(); show('room');
   const { data: rr } = await sb.from('room_reads').select('last_read_at').eq('room_id', r.id).maybeSingle();
   seenCut = rr ? rr.last_read_at : '1970-01-01'; await markRead(r.id);
@@ -332,6 +347,38 @@ $('bSave').onclick = async () => {
   const { error } = editingBanner ? await sb.from('banners').update(row).eq('id', editingBanner) : await sb.from('banners').insert(row);
   if (error) return alert(error.message);
   resetBanner(); loadBanners();
+};
+// ---------- Suppression d'un RP (administrateur uniquement, vérifié côté base) ----------
+$('delRoom').onclick = async () => {
+  if (prompt('Cette action supprime le RP et tous ses messages, définitivement.\nTape le nom du RP pour confirmer :') !== room.title) return;
+  const { data, error } = await sb.from('rooms').delete().eq('id', room.id).select();
+  if (error || !data.length) return alert("Suppression impossible : seul l'administrateur peut supprimer un RP.");
+  room = null; if (channel) sb.removeChannel(channel); show('home');
+};
+
+// ---------- Notes personnelles ----------
+async function loadNotes() {
+  const { data } = await sb.from('notes').select('id,title,content').order('created_at', { ascending: false });
+  const out = [];
+  for (const n of data || []) {
+    const p = h('div', { className: 'body' }); await render(n.content, p);
+    out.push(h('div', { className: 'msg' }, h('header', {}, h('strong', { textContent: n.title })), p, h('div', { className: 'row' },
+      h('button', { className: 'alt', textContent: 'Modifier', onclick: () => { editingNote = n.id; $('nTitle').value = n.title; $('nText').value = n.content; render(n.content, $('nPrev')); scrollTo(0, 0); } }),
+      h('button', { className: 'alt', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette note ?')) { await sb.from('notes').delete().eq('id', n.id); loadNotes(); } } }))));
+  }
+  $('nList').replaceChildren(...(out.length ? out : [h('p', { className: 'hint', textContent: 'Aucune note pour le moment.' })]));
+}
+function resetNote() { editingNote = null; $('nTitle').value = $('nText').value = ''; $('nPrev').replaceChildren(); }
+$('nCancel').onclick = resetNote;
+$('nText').oninput = () => render($('nText').value, $('nPrev'));
+$('nFile').onchange = e => { uploadInto(e.target.files[0], $('nText'), $('nPrev')); e.target.value = ''; };
+$('nSave').onclick = async () => {
+  const title = $('nTitle').value.trim(), content = $('nText').value.trim();
+  if (!title || !content) return alert('Renseigne un titre et un texte.');
+  const row = { title, content, updated_at: new Date().toISOString() };
+  const { error } = editingNote ? await sb.from('notes').update(row).eq('id', editingNote) : await sb.from('notes').insert(row);
+  if (error) return alert(error.message);
+  resetNote(); loadNotes();
 };
 start();
 </script>
