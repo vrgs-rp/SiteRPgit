@@ -5,83 +5,114 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Messagerie RP</title>
 <style>
-  :root { --bg:#1f2a2e; --panel:#283539; --line:#3b4a4f; --text:#e6e2d8; --muted:#9fb0b3; --link:#6fc3c0; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,sans-serif; }
-  [hidden] { display:none !important; }
-  input, textarea, select { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:.55rem; font:inherit; }
-  textarea { min-height:80px; resize:vertical; }
-  button, .filebtn { background:var(--link); color:#10201f; border:0; border-radius:4px; padding:.5rem .9rem; font:inherit; cursor:pointer; }
-  button.alt { background:transparent; color:var(--text); border:1px solid var(--line); }
-  :focus-visible { outline:2px solid var(--link); outline-offset:2px; }
-  input[type=file] { position:absolute; opacity:0; width:1px; height:1px; }
-  a { color:var(--link); }
-  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:.5rem 0; }
-  .hint { color:var(--muted); font-size:.9rem; }
-  #login { max-width:340px; margin:15vh auto; padding:1rem; display:grid; gap:.7rem; }
-  #app { display:grid; grid-template-columns:230px 1fr; min-height:100vh; }
-  aside { background:var(--panel); border-right:1px solid var(--line); padding:1rem; display:grid; gap:.5rem; align-content:start; }
-  aside button.room { text-align:left; background:transparent; color:var(--text); border:1px solid transparent; }
-  aside button.room.on { border-color:var(--link); }
-  main { padding:1rem; display:grid; gap:1rem; align-content:start; max-width:860px; }
-  .msg { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:.7rem; }
-  .msg header { color:var(--muted); font-size:.85rem; margin-bottom:.3rem; }
-  .body { white-space:pre-wrap; overflow-wrap:anywhere; }
-  .body img { height:56px; vertical-align:middle; margin:0 .3rem; cursor:zoom-in; border-radius:2px; }
-  .preview { background:var(--bg); border-radius:4px; padding:.5rem; min-height:2.5rem; }
-  #zoom { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; padding:1rem; }
-  #zoom.on { display:flex; } #zoom img { max-width:100%; max-height:100%; }
-  @media (max-width:700px) { #app { grid-template-columns:1fr; } aside { border-right:0; border-bottom:1px solid var(--line); } }
+:root{--bg:#1f2a2e;--panel:#283539;--line:#3b4a4f;--text:#e6e2d8;--muted:#9fb0b3;--link:#6fc3c0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}
+[hidden]{display:none!important}
+input,textarea,select{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:.55rem;font:inherit}
+textarea{min-height:90px;resize:vertical}
+button,.filebtn{background:var(--link);color:#10201f;border:0;border-radius:4px;padding:.5rem .9rem;font:inherit;cursor:pointer}
+button.alt{background:transparent;color:var(--text);border:1px solid var(--line)}
+:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+input[type=file]{position:absolute;opacity:0;width:1px;height:1px}
+a{color:var(--link)}h2,h3{margin:.2rem 0}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.5rem 0}
+.hint{color:var(--muted);font-size:.9rem;margin:.2rem 0}
+#login{max-width:340px;margin:15vh auto;padding:1rem;display:grid;gap:.7rem}
+#app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:1rem;display:grid;gap:.5rem;align-content:start}
+aside button.room{text-align:left;background:transparent;color:var(--text);border:1px solid transparent}
+aside button.room.on{border-color:var(--link)}
+main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
+.card{min-height:120px;background:var(--panel);border:1px solid var(--line);color:var(--text);text-align:left;padding:1rem;font-size:1.1rem}
+.card:hover{border-color:var(--link)}
+.badge,.new{background:var(--link);color:#10201f;border-radius:10px;padding:0 .5rem;font-size:.8rem;margin-left:.4rem}
+.msg{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.7rem}
+.msg header{color:var(--muted);font-size:.85rem;margin-bottom:.3rem}
+.msg .row{margin-top:1rem}
+.body{white-space:pre-wrap;overflow-wrap:anywhere}
+.body img{height:56px;vertical-align:middle;margin:0 .3rem;cursor:zoom-in;border-radius:2px}
+.preview{background:var(--bg);border-radius:4px;padding:.5rem;min-height:2.5rem}
+.compose{display:grid;grid-template-columns:1fr 230px;gap:.8rem}
+#draftBox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.6rem;align-self:start}
+.pitem{padding:.5rem;border:1px solid var(--line);border-radius:4px;cursor:pointer;display:grid;gap:.2rem}
+.pitem:hover{border-color:var(--link)}
+#picker{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.7rem;display:grid;gap:.5rem}
+#pList{display:grid;gap:.4rem;max-height:340px;overflow:auto}
+#zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:1rem}
+#zoom.on{display:flex}#zoom img{max-width:100%;max-height:100%}
+#zx{position:absolute;top:1rem;right:1rem;background:var(--panel);color:var(--text);font-size:1.3rem}
+@media(max-width:700px){#app,.compose{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 </head>
 <body>
 <form id="login">
   <h1>Messagerie RP</h1>
-  <input id="email" type="email" placeholder="E-mail" autocomplete="username" required>
+  <input id="pseudo" placeholder="Pseudo" autocomplete="username" required>
   <input id="pass" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
-  <button>Se connecter</button>
-  <p class="hint" id="loginErr"></p>
+  <button>Se connecter</button><p class="hint" id="loginErr"></p>
 </form>
 
 <div id="app" hidden>
   <aside>
     <strong id="who"></strong>
-    <button class="alt" id="newRoom">Nouveau RP</button>
+    <button class="alt" id="toHome">Accueil</button>
     <div id="rooms" style="display:grid;gap:.3rem"></div>
+    <button class="alt" id="newRoom">Nouveau RP</button>
     <button class="alt" id="toBanners">Mes bannières</button>
     <button class="alt" id="logout">Se déconnecter</button>
   </aside>
 
-  <main id="roomView">
-    <h2 id="roomTitle">Choisis un RP</h2>
-    <div class="row" id="addRow" hidden><input id="memberPseudo" placeholder="Pseudo à ajouter à ce RP" style="max-width:260px"><button class="alt" id="addMember">Ajouter</button></div>
+  <main id="homeView">
+    <h2>Tableau de bord</h2>
+    <div class="cards" id="homeCards"></div>
+  </main>
+
+  <main id="roomView" hidden>
+    <h2 id="roomTitle"></h2>
+    <div class="row"><input id="search" placeholder="Rechercher dans ce RP…" style="max-width:320px"><button class="alt" id="clearSearch">Effacer</button></div>
     <div id="msgs" style="display:grid;gap:.6rem"></div>
-    <div id="composer" hidden>
-      <div class="row"><select id="pick" style="max-width:260px" aria-label="Bannière"></select><button class="alt" id="insBanner">Insérer la bannière</button>
-        <label class="filebtn">Insérer une image<input type="file" id="msgFile" accept="image/*"></label></div>
-      <textarea id="msgText" placeholder="Ton message…"></textarea>
-      <div class="row"><button id="send">Envoyer</button></div>
-      <div class="preview body" id="msgPrev"></div>
+    <div>
+      <button class="alt" id="togglePicker">Choisir une bannière</button>
+      <div id="picker" hidden>
+        <div class="row" style="margin:0"><select id="pRoom" style="max-width:240px" aria-label="RP de la bannière"></select><input id="pSearch" placeholder="Chercher un personnage…" style="max-width:260px"></div>
+        <div id="pList"></div>
+      </div>
+    </div>
+    <div class="compose">
+      <div>
+        <textarea id="msgText" placeholder="Ton message…"></textarea>
+        <div class="row"><button id="send">Envoyer</button>
+          <label class="filebtn">Insérer une image<input type="file" id="msgFile" accept="image/*"></label>
+          <button class="alt" id="saveDraft">Enregistrer le brouillon</button><span class="hint" id="count">0 caractère</span></div>
+        <div class="preview body" id="msgPrev"></div>
+      </div>
+      <div id="draftBox" aria-label="Brouillon"></div>
     </div>
   </main>
 
   <main id="bannerView" hidden>
     <h2>Mes bannières</h2>
-    <input id="bName" placeholder="Nom du personnage (pour la retrouver dans la liste)">
+    <select id="bRoom" aria-label="RP de la bannière"></select>
+    <input id="bName" placeholder="Nom du personnage">
     <textarea id="bText" placeholder="Écris ta bannière librement, ex : [] Sethis - Soleil fougueux - https://youtu.be/... []"></textarea>
-    <div class="row"><label class="filebtn">Insérer une image<input type="file" id="bFile" accept="image/*"></label><button id="bSave">Enregistrer</button><button class="alt" id="toRoom">Retour aux messageries</button></div>
+    <div class="row"><label class="filebtn">Insérer une image<input type="file" id="bFile" accept="image/*"></label><button id="bSave">Enregistrer</button><button class="alt" id="bCancel">Annuler la modification</button></div>
     <div class="preview body" id="bPrev"></div>
     <div id="bList" style="display:grid;gap:.6rem"></div>
   </main>
 </div>
-<div id="zoom" role="dialog" aria-label="Image en grand"><img alt=""></div>
+<div id="zoom" role="dialog" aria-label="Image en grand"><button id="zx" aria-label="Fermer">✕</button><img alt=""></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 const sb = supabase.createClient('https://tjglotnquszxtuesyayi.supabase.co', 'sb_publishable_hBceLGFpCqalQen94mrbRw_EbYKb810');
 const $ = id => document.getElementById(id);
-let me, room, banners = [], channel;
-const imgs = {}; // id -> { thumb, full }
+const h = (t, p = {}, ...c) => { const e = Object.assign(document.createElement(t), p); e.append(...c); return e; };
+const byName = (a, b) => a.character_name.localeCompare(b.character_name, 'fr');
+const DAY = 864e5, mail = p => p.trim().toLowerCase().replace(/\s+/g, '') + '@rp.example.com';
+let me, rooms = [], room, banners = [], channel, seenCut, editingBanner = null, draft = null, draftTimer;
+const imgs = {};
 
 // ---------- Rendu sûr : texte + jetons [img:id] + liens, jamais de HTML ----------
 async function ensureImages(text) {
@@ -92,31 +123,30 @@ async function ensureImages(text) {
   (data || []).forEach(r => imgs[r.id] = { thumb: url(r.thumb_path), full: url(r.full_path) });
 }
 async function render(text, el) {
-  await ensureImages(text);
-  el.replaceChildren();
+  await ensureImages(text); el.replaceChildren();
   const re = /\[img:([a-z0-9]+)\]|(https?:\/\/[^\s]+)/g; let last = 0, m;
   while ((m = re.exec(text))) {
     el.append(text.slice(last, m.index));
     if (m[1] && imgs[m[1]]) {
-      const i = document.createElement('img'); i.src = imgs[m[1]].thumb; i.alt = 'image'; i.tabIndex = 0;
-      const open = () => { $('zoom').querySelector('img').src = imgs[m[1]].full; $('zoom').classList.add('on'); };
-      i.onclick = open; i.onkeydown = e => e.key === 'Enter' && open(); el.append(i);
-    } else if (m[2]) {
-      const a = document.createElement('a'); a.href = m[2]; a.textContent = m[2]; a.target = '_blank'; a.rel = 'noopener noreferrer'; el.append(a);
-    } else el.append(m[0]);
+      const id = m[1], open = () => { $('zoom').querySelector('img').src = imgs[id].full; $('zoom').classList.add('on'); };
+      el.append(h('img', { src: imgs[id].thumb, alt: 'image', tabIndex: 0, onclick: open, onkeydown: e => e.key === 'Enter' && open() }));
+    } else if (m[2]) el.append(h('a', { href: m[2], textContent: m[2], target: '_blank', rel: 'noopener noreferrer' }));
+    else el.append(m[0]);
     last = re.lastIndex;
   }
   el.append(text.slice(last));
 }
-$('zoom').onclick = () => $('zoom').classList.remove('on');
+const closeZoom = () => $('zoom').classList.remove('on');
+$('zoom').onclick = e => { if (e.target.tagName !== 'IMG') closeZoom(); };
+document.addEventListener('keydown', e => e.key === 'Escape' && closeZoom());
 
 // ---------- Upload d'image : miniature + version complète WebP ----------
-const toBlob = (bmp, maxW, maxH, q) => new Promise(ok => {
-  const s = Math.min(1, maxW / bmp.width, maxH / bmp.height), c = document.createElement('canvas');
+const toBlob = (bmp, mw, mh, q) => new Promise(ok => {
+  const s = Math.min(1, mw / bmp.width, mh / bmp.height), c = document.createElement('canvas');
   c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); c.toBlob(ok, 'image/webp', q);
 });
-async function uploadInto(file, textarea, previewEl) {
+async function uploadInto(file, ta, prev) {
   if (!file) return;
   try {
     const bmp = await createImageBitmap(file), id = Math.random().toString(36).slice(2, 12), b = sb.storage.from('images');
@@ -126,116 +156,183 @@ async function uploadInto(file, textarea, previewEl) {
     if (r1.error || r2.error) throw (r1.error || r2.error);
     const { error } = await sb.from('images').insert({ id, full_path: full, thumb_path: thumb });
     if (error) throw error;
-    const p = textarea.selectionStart;
-    textarea.value = textarea.value.slice(0, p) + `[img:${id}]` + textarea.value.slice(textarea.selectionEnd);
-    textarea.focus(); render(textarea.value, previewEl);
+    const p = ta.selectionStart; ta.value = ta.value.slice(0, p) + `[img:${id}]` + ta.value.slice(ta.selectionEnd);
+    ta.focus(); ta.dispatchEvent(new Event('input'));
   } catch (e) { alert("Échec de l'envoi de l'image : " + (e.message || e)); }
 }
 $('msgFile').onchange = e => { uploadInto(e.target.files[0], $('msgText'), $('msgPrev')); e.target.value = ''; };
 $('bFile').onchange = e => { uploadInto(e.target.files[0], $('bText'), $('bPrev')); e.target.value = ''; };
-$('msgText').oninput = () => render($('msgText').value, $('msgPrev'));
 $('bText').oninput = () => render($('bText').value, $('bPrev'));
 
-// ---------- Connexion ----------
+// ---------- Connexion par pseudo ----------
 $('login').onsubmit = async e => {
   e.preventDefault();
-  const { error } = await sb.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
-  if (error) $('loginErr').textContent = 'Connexion impossible : e-mail ou mot de passe incorrect.'; else start();
+  const { error } = await sb.auth.signInWithPassword({ email: mail($('pseudo').value), password: $('pass').value });
+  if (error) $('loginErr').textContent = 'Pseudo ou mot de passe incorrect.'; else start();
 };
 $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 async function start() {
   const { data } = await sb.auth.getSession(); if (!data.session) return;
   me = data.session.user; $('login').hidden = true; $('app').hidden = false;
   const { data: p } = await sb.from('profiles').select('pseudo').eq('id', me.id).maybeSingle();
-  $('who').textContent = p ? p.pseudo : me.email;
-  loadRooms(); loadBanners();
+  $('who').textContent = p ? p.pseudo : '';
+  await sb.from('drafts').delete().lt('updated_at', new Date(Date.now() - 3 * DAY).toISOString());
+  await loadRooms(); await loadBanners(); show('home');
 }
+function show(v) { ['home', 'room', 'banner'].forEach(n => $(n + 'View').hidden = n !== v); if (v === 'home') loadRooms(); }
+$('toHome').onclick = () => show('home');
+$('toBanners').onclick = () => show('banner');
 
-// ---------- Messageries ----------
+// ---------- RP et indicateurs de nouveaux messages ----------
 async function loadRooms() {
-  const { data } = await sb.from('rooms').select('id,title').order('created_at');
-  $('rooms').replaceChildren();
-  (data || []).forEach(r => {
-    const b = document.createElement('button'); b.className = 'room' + (room && room.id === r.id ? ' on' : ''); b.textContent = r.title;
-    b.onclick = () => openRoom(r); $('rooms').append(b);
-  });
+  const [{ data: rs }, { data: rd }] = await Promise.all([sb.from('rooms').select('id,title').order('created_at'), sb.from('room_reads').select('room_id,last_read_at')]);
+  const reads = Object.fromEntries((rd || []).map(r => [r.room_id, r.last_read_at]));
+  rooms = await Promise.all((rs || []).map(async r => {
+    const { count } = await sb.from('messages').select('id', { count: 'exact', head: true }).eq('room_id', r.id).neq('author_id', me.id).gt('created_at', reads[r.id] || '1970-01-01');
+    return { ...r, unread: count || 0 };
+  }));
+  $('rooms').replaceChildren(...rooms.map(r => h('button', { className: 'room' + (room && room.id === r.id ? ' on' : ''), onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread })] : []))));
+  $('homeCards').replaceChildren(...rooms.map(r => h('button', { className: 'card', onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread + ' nouveau' + (r.unread > 1 ? 'x' : '') })] : []))),
+    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'));
+  for (const id of ['pRoom', 'bRoom']) {
+    const cur = $(id).value; $(id).replaceChildren(...rooms.map(r => new Option(r.title, r.id)), ...(id === 'bRoom' ? [new Option('Sans RP', '')] : [])); if (cur !== '') $(id).value = cur;
+  }
 }
-$('newRoom').onclick = async () => {
+async function newRoom() {
   const title = prompt('Nom du nouveau RP :'); if (!title) return;
   const { data, error } = await sb.from('rooms').insert({ title: title.trim() }).select().single();
   if (error) return alert(error.message);
   await loadRooms(); openRoom(data);
-};
-$('addMember').onclick = async () => {
-  const pseudo = $('memberPseudo').value.trim(); if (!pseudo) return;
-  const { data: p } = await sb.from('profiles').select('id').eq('pseudo', pseudo).maybeSingle();
-  if (!p) return alert('Aucun utilisateur avec ce pseudo.');
-  const { error } = await sb.from('room_members').insert({ room_id: room.id, user_id: p.id });
-  alert(error ? "Ajout impossible (déjà membre, ou tu n'es pas le créateur de ce RP)." : pseudo + ' a été ajouté.');
-  $('memberPseudo').value = '';
-};
+}
+$('newRoom').onclick = newRoom;
+const markRead = id => sb.from('room_reads').upsert({ user_id: me.id, room_id: id, last_read_at: new Date().toISOString() });
+
 async function openRoom(r) {
-  room = r; show('room'); $('roomTitle').textContent = r.title;
-  $('addRow').hidden = $('composer').hidden = false; loadRooms(); loadMessages();
+  if (room && $('msgText').value.trim()) await saveDraft();
+  room = r; $('roomTitle').textContent = r.title; $('msgText').value = ''; $('search').value = ''; $('msgPrev').replaceChildren(); countChars();
+  $('pRoom').value = r.id; drawPicker(); show('room');
+  const { data: rr } = await sb.from('room_reads').select('last_read_at').eq('room_id', r.id).maybeSingle();
+  seenCut = rr ? rr.last_read_at : '1970-01-01'; await markRead(r.id);
+  loadMessages(); loadDraft(); loadRooms();
   if (channel) sb.removeChannel(channel);
-  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, loadMessages).subscribe();
+  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, () => { loadMessages(); markRead(r.id); }).subscribe();
 }
+
+// ---------- Messages : affichage, recherche, édition, suppression ----------
 async function loadMessages() {
-  const { data } = await sb.from('messages').select('id,content,created_at,author_id,profiles(pseudo)').eq('room_id', room.id).order('created_at');
-  await ensureImages((data || []).map(m => m.content).join('\n'));
-  $('msgs').replaceChildren();
+  let qy = sb.from('messages').select('id,content,created_at,edited_at,author_id,profiles(pseudo)').eq('room_id', room.id).order('created_at');
+  const q = $('search').value.trim(); if (q) qy = qy.ilike('content', '%' + q.replace(/[%_\\]/g, '\\$&') + '%');
+  const { data } = await qy; await ensureImages((data || []).map(m => m.content).join('\n'));
+  const out = [];
   for (const m of data || []) {
-    const d = document.createElement('div'); d.className = 'msg';
-    const h = document.createElement('header'); h.textContent = `${m.profiles ? m.profiles.pseudo : '?'} — ${new Date(m.created_at).toLocaleString('fr-FR')}`;
-    const b = document.createElement('div'); b.className = 'body'; await render(m.content, b);
-    d.append(h, b);
+    const isNew = m.author_id !== me.id && m.created_at > seenCut;
+    const head = h('header', {}, `${m.profiles ? m.profiles.pseudo : '?'} — ${new Date(m.created_at).toLocaleString('fr-FR')}${m.edited_at ? ' (modifié)' : ''}`, ...(isNew ? [h('span', { className: 'new', textContent: 'Nouveau' })] : []));
+    const body = h('div', { className: 'body' }); await render(m.content, body);
+    const d = h('div', { className: 'msg' }, head, body);
     if (m.author_id === me.id) {
-      const del = document.createElement('button'); del.className = 'alt'; del.textContent = 'Supprimer';
-      del.onclick = async () => { if (confirm('Supprimer ce message ?')) { await sb.from('messages').delete().eq('id', m.id); loadMessages(); } };
-      d.append(del);
+      const bar = h('div', { className: 'row' });
+      bar.append(h('button', { className: 'alt', textContent: 'Modifier', onclick: () => {
+        const ta = h('textarea', { value: m.content }); body.replaceChildren(ta);
+        bar.replaceChildren(h('button', { textContent: 'Enregistrer', onclick: async () => {
+          const { error } = await sb.from('messages').update({ content: ta.value.trim(), edited_at: new Date().toISOString() }).eq('id', m.id);
+          if (error) alert(error.message); loadMessages(); } }), h('button', { className: 'alt', textContent: 'Annuler', onclick: loadMessages }));
+      } }), h('button', { className: 'alt', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer ce message ?')) { await sb.from('messages').delete().eq('id', m.id); loadMessages(); } } }));
+      d.append(bar);
     }
-    $('msgs').append(d);
+    out.push(d);
   }
+  $('msgs').replaceChildren(...out);
 }
+let st; $('search').oninput = () => { clearTimeout(st); st = setTimeout(loadMessages, 300); };
+$('clearSearch').onclick = () => { $('search').value = ''; loadMessages(); };
+
+// ---------- Composer : compteur, envoi, brouillon ----------
+function countChars() { const n = $('msgText').value.length; $('count').textContent = n + ' caractère' + (n > 1 ? 's' : ''); }
+$('msgText').oninput = () => {
+  countChars(); render($('msgText').value, $('msgPrev'));
+  clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 1500);
+};
 $('send').onclick = async () => {
   const content = $('msgText').value.trim(); if (!content) return;
   const { error } = await sb.from('messages').insert({ room_id: room.id, content });
   if (error) return alert(error.message);
-  $('msgText').value = ''; $('msgPrev').replaceChildren(); loadMessages();
+  clearTimeout(draftTimer); await sb.from('drafts').delete().eq('room_id', room.id); draft = null; drawDraft();
+  $('msgText').value = ''; $('msgPrev').replaceChildren(); countChars(); markRead(room.id); loadMessages();
 };
-
-// ---------- Bannières ----------
-async function loadBanners() {
-  const { data } = await sb.from('banners').select('id,character_name,content').order('created_at');
-  banners = data || []; $('pick').replaceChildren(); $('bList').replaceChildren();
-  banners.forEach((b, i) => {
-    $('pick').add(new Option(b.character_name, i));
-    const d = document.createElement('div'); d.className = 'msg';
-    const h = document.createElement('header'); h.textContent = b.character_name;
-    const p = document.createElement('div'); p.className = 'body'; render(b.content, p);
-    const row = document.createElement('div'); row.className = 'row';
-    const ed = document.createElement('button'); ed.className = 'alt'; ed.textContent = 'Modifier';
-    ed.onclick = async () => { $('bName').value = b.character_name; $('bText').value = b.content; await sb.from('banners').delete().eq('id', b.id); loadBanners(); render(b.content, $('bPrev')); };
-    const del = document.createElement('button'); del.className = 'alt'; del.textContent = 'Supprimer';
-    del.onclick = async () => { if (confirm('Supprimer cette bannière ?')) { await sb.from('banners').delete().eq('id', b.id); loadBanners(); } };
-    row.append(ed, del); d.append(h, p, row); $('bList').append(d);
-  });
+async function saveDraft() {
+  clearTimeout(draftTimer); const content = $('msgText').value; if (!room || !content.trim()) return;
+  const updated_at = new Date().toISOString();
+  const { error } = await sb.from('drafts').upsert({ user_id: me.id, room_id: room.id, content, updated_at });
+  if (!error) { draft = { content, updated_at }; drawDraft(); }
 }
-$('bSave').onclick = async () => {
-  const character_name = $('bName').value.trim(), content = $('bText').value.trim();
-  if (!character_name || !content) return alert('Renseigne le nom du personnage et le texte.');
-  const { error } = await sb.from('banners').insert({ character_name, content });
-  if (error) return alert(error.message);
-  $('bName').value = $('bText').value = ''; $('bPrev').replaceChildren(); loadBanners();
-};
-$('insBanner').onclick = () => {
-  const b = banners[$('pick').value]; if (!b) return;
-  $('msgText').value = b.content + '\n\n' + $('msgText').value; render($('msgText').value, $('msgPrev'));
-};
-function show(v) { $('roomView').hidden = v !== 'room'; $('bannerView').hidden = v !== 'banners'; }
-$('toBanners').onclick = () => show('banners');
-$('toRoom').onclick = () => show('room');
+$('saveDraft').onclick = saveDraft;
+document.addEventListener('visibilitychange', () => document.hidden && saveDraft());
+async function loadDraft() {
+  const { data } = await sb.from('drafts').select('content,updated_at').eq('room_id', room.id).maybeSingle();
+  draft = data && Date.now() - new Date(data.updated_at) < 3 * DAY ? data : null; drawDraft();
+}
+function drawDraft() {
+  const b = $('draftBox'); b.replaceChildren(h('strong', { textContent: 'Brouillon' }));
+  if (!draft) return b.append(h('p', { className: 'hint', textContent: 'Aucun brouillon. Supprimé automatiquement après 3 jours.' }));
+  b.append(h('p', { className: 'body hint', textContent: draft.content.length > 160 ? draft.content.slice(0, 160) + '…' : draft.content }),
+    h('div', { className: 'row' },
+      h('button', { className: 'alt', textContent: 'Restaurer', onclick: () => { $('msgText').value = draft.content; $('msgText').dispatchEvent(new Event('input')); } }),
+      h('button', { className: 'alt', textContent: '✕', title: 'Supprimer le brouillon', 'aria-label': 'Supprimer le brouillon', onclick: async () => { await sb.from('drafts').delete().eq('room_id', room.id); draft = null; drawDraft(); } })));
+}
 
+// ---------- Bannières : sélecteur (favoris, récents, alphabétique) ----------
+async function loadBanners() {
+  const { data } = await sb.from('banners').select('id,character_name,content,room_id,favorite,last_used_at').order('created_at');
+  banners = data || []; drawBannerList(); drawPicker();
+}
+function sorted(roomId, q) {
+  const l = banners.filter(b => (b.room_id || '') === (roomId || '') && b.character_name.toLowerCase().includes(q));
+  const fav = l.filter(b => b.favorite).sort(byName);
+  const rec = l.filter(b => !b.favorite && b.last_used_at).sort((a, b) => b.last_used_at.localeCompare(a.last_used_at)).slice(0, 5);
+  const rest = l.filter(b => !fav.includes(b) && !rec.includes(b)).sort(byName);
+  return [...fav.map(b => [b, '★']), ...rec.map(b => [b, '🕘']), ...rest.map(b => [b, ''])];
+}
+function drawPicker() {
+  const items = sorted($('pRoom').value, $('pSearch').value.trim().toLowerCase());
+  $('pList').replaceChildren(...(items.length ? items.map(([b, icon]) => {
+    const p = h('div', { className: 'body' }); p.style.pointerEvents = 'none'; render(b.content, p);
+    return h('div', { className: 'pitem', tabIndex: 0, onclick: () => useBanner(b), onkeydown: e => e.key === 'Enter' && useBanner(b) }, h('strong', {}, (icon ? icon + ' ' : '') + b.character_name), p);
+  }) : [h('p', { className: 'hint', textContent: 'Aucune bannière pour ce RP.' })]));
+}
+function useBanner(b) {
+  $('msgText').value = b.content + '\n\n' + $('msgText').value; $('msgText').dispatchEvent(new Event('input'));
+  b.last_used_at = new Date().toISOString(); sb.from('banners').update({ last_used_at: b.last_used_at }).eq('id', b.id);
+  $('picker').hidden = true; $('msgText').focus();
+}
+$('togglePicker').onclick = () => { $('picker').hidden = !$('picker').hidden; drawPicker(); };
+$('pRoom').onchange = $('pSearch').oninput = drawPicker;
+
+// ---------- Bannières : gestion ----------
+function drawBannerList() {
+  const out = [];
+  [...rooms.map(r => [r.id, r.title]), ['', 'Sans RP']].forEach(([id, title]) => {
+    const l = banners.filter(b => (b.room_id || '') === id).sort(byName); if (!l.length) return;
+    out.push(h('h3', { textContent: title }));
+    l.forEach(b => {
+      const p = h('div', { className: 'body' }); render(b.content, p);
+      out.push(h('div', { className: 'msg' }, h('header', { textContent: b.character_name }), p, h('div', { className: 'row' },
+        h('button', { className: 'alt', textContent: b.favorite ? '★ Favori' : '☆ Favori', 'aria-pressed': b.favorite, onclick: async () => { b.favorite = !b.favorite; await sb.from('banners').update({ favorite: b.favorite }).eq('id', b.id); drawBannerList(); drawPicker(); } }),
+        h('button', { className: 'alt', textContent: 'Modifier', onclick: () => { editingBanner = b.id; $('bRoom').value = b.room_id || ''; $('bName').value = b.character_name; $('bText').value = b.content; render(b.content, $('bPrev')); scrollTo(0, 0); } }),
+        h('button', { className: 'alt', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette bannière ?')) { await sb.from('banners').delete().eq('id', b.id); loadBanners(); } } }))));
+    });
+  });
+  $('bList').replaceChildren(...out);
+}
+function resetBanner() { editingBanner = null; $('bName').value = $('bText').value = ''; $('bPrev').replaceChildren(); }
+$('bCancel').onclick = resetBanner;
+$('bSave').onclick = async () => {
+  const character_name = $('bName').value.trim(), content = $('bText').value.trim(), room_id = $('bRoom').value || null;
+  if (!character_name || !content) return alert('Renseigne le nom du personnage et le texte.');
+  const row = { character_name, content, room_id };
+  const { error } = editingBanner ? await sb.from('banners').update(row).eq('id', editingBanner) : await sb.from('banners').insert(row);
+  if (error) return alert(error.message);
+  resetBanner(); loadBanners();
+};
 start();
 </script>
 </body>
