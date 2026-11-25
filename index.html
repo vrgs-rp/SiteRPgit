@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messagerie RP</title>
+<style>
+  :root { --bg:#1f2a2e; --panel:#283539; --line:#3b4a4f; --text:#e6e2d8; --muted:#9fb0b3; --link:#6fc3c0; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,sans-serif; }
+  [hidden] { display:none !important; }
+  input, textarea, select { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:.55rem; font:inherit; }
+  textarea { min-height:80px; resize:vertical; }
+  button, .filebtn { background:var(--link); color:#10201f; border:0; border-radius:4px; padding:.5rem .9rem; font:inherit; cursor:pointer; }
+  button.alt { background:transparent; color:var(--text); border:1px solid var(--line); }
+  :focus-visible { outline:2px solid var(--link); outline-offset:2px; }
+  input[type=file] { position:absolute; opacity:0; width:1px; height:1px; }
+  a { color:var(--link); }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:.5rem 0; }
+  .hint { color:var(--muted); font-size:.9rem; }
+  #login { max-width:340px; margin:15vh auto; padding:1rem; display:grid; gap:.7rem; }
+  #app { display:grid; grid-template-columns:230px 1fr; min-height:100vh; }
+  aside { background:var(--panel); border-right:1px solid var(--line); padding:1rem; display:grid; gap:.5rem; align-content:start; }
+  aside button.room { text-align:left; background:transparent; color:var(--text); border:1px solid transparent; }
+  aside button.room.on { border-color:var(--link); }
+  main { padding:1rem; display:grid; gap:1rem; align-content:start; max-width:860px; }
+  .msg { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:.7rem; }
+  .msg header { color:var(--muted); font-size:.85rem; margin-bottom:.3rem; }
+  .body { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .body img { height:56px; vertical-align:middle; margin:0 .3rem; cursor:zoom-in; border-radius:2px; }
+  .preview { background:var(--bg); border-radius:4px; padding:.5rem; min-height:2.5rem; }
+  #zoom { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; padding:1rem; }
+  #zoom.on { display:flex; } #zoom img { max-width:100%; max-height:100%; }
+  @media (max-width:700px) { #app { grid-template-columns:1fr; } aside { border-right:0; border-bottom:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<form id="login">
+  <h1>Messagerie RP</h1>
+  <input id="email" type="email" placeholder="E-mail" autocomplete="username" required>
+  <input id="pass" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+  <button>Se connecter</button>
+  <p class="hint" id="loginErr"></p>
+</form>
+
+<div id="app" hidden>
+  <aside>
+    <strong id="who"></strong>
+    <button class="alt" id="newRoom">Nouveau RP</button>
+    <div id="rooms" style="display:grid;gap:.3rem"></div>
+    <button class="alt" id="toBanners">Mes bannières</button>
+    <button class="alt" id="logout">Se déconnecter</button>
+  </aside>
+
+  <main id="roomView">
+    <h2 id="roomTitle">Choisis un RP</h2>
+    <div class="row" id="addRow" hidden><input id="memberPseudo" placeholder="Pseudo à ajouter à ce RP" style="max-width:260px"><button class="alt" id="addMember">Ajouter</button></div>
+    <div id="msgs" style="display:grid;gap:.6rem"></div>
+    <div id="composer" hidden>
+      <div class="row"><select id="pick" style="max-width:260px" aria-label="Bannière"></select><button class="alt" id="insBanner">Insérer la bannière</button>
+        <label class="filebtn">Insérer une image<input type="file" id="msgFile" accept="image/*"></label></div>
+      <textarea id="msgText" placeholder="Ton message…"></textarea>
+      <div class="row"><button id="send">Envoyer</button></div>
+      <div class="preview body" id="msgPrev"></div>
+    </div>
+  </main>
+
+  <main id="bannerView" hidden>
+    <h2>Mes bannières</h2>
+    <input id="bName" placeholder="Nom du personnage (pour la retrouver dans la liste)">
+    <textarea id="bText" placeholder="Écris ta bannière librement, ex : [] Sethis - Soleil fougueux - https://youtu.be/... []"></textarea>
+    <div class="row"><label class="filebtn">Insérer une image<input type="file" id="bFile" accept="image/*"></label><button id="bSave">Enregistrer</button><button class="alt" id="toRoom">Retour aux messageries</button></div>
+    <div class="preview body" id="bPrev"></div>
+    <div id="bList" style="display:grid;gap:.6rem"></div>
+  </main>
+</div>
+<div id="zoom" role="dialog" aria-label="Image en grand"><img alt=""></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const sb = supabase.createClient('https://tjglotnquszxtuesyayi.supabase.co', 'sb_publishable_hBceLGFpCqalQen94mrbRw_EbYKb810');
+const $ = id => document.getElementById(id);
+let me, room, banners = [], channel;
+const imgs = {}; // id -> { thumb, full }
+
+// ---------- Rendu sûr : texte + jetons [img:id] + liens, jamais de HTML ----------
+async function ensureImages(text) {
+  const ids = [...text.matchAll(/\[img:([a-z0-9]+)\]/g)].map(m => m[1]).filter(i => !imgs[i]);
+  if (!ids.length) return;
+  const { data } = await sb.from('images').select('id,full_path,thumb_path').in('id', [...new Set(ids)]);
+  const url = p => sb.storage.from('images').getPublicUrl(p).data.publicUrl;
+  (data || []).forEach(r => imgs[r.id] = { thumb: url(r.thumb_path), full: url(r.full_path) });
+}
+async function render(text, el) {
+  await ensureImages(text);
+  el.replaceChildren();
+  const re = /\[img:([a-z0-9]+)\]|(https?:\/\/[^\s]+)/g; let last = 0, m;
+  while ((m = re.exec(text))) {
+    el.append(text.slice(last, m.index));
+    if (m[1] && imgs[m[1]]) {
+      const i = document.createElement('img'); i.src = imgs[m[1]].thumb; i.alt = 'image'; i.tabIndex = 0;
+      const open = () => { $('zoom').querySelector('img').src = imgs[m[1]].full; $('zoom').classList.add('on'); };
+      i.onclick = open; i.onkeydown = e => e.key === 'Enter' && open(); el.append(i);
+    } else if (m[2]) {
+      const a = document.createElement('a'); a.href = m[2]; a.textContent = m[2]; a.target = '_blank'; a.rel = 'noopener noreferrer'; el.append(a);
+    } else el.append(m[0]);
+    last = re.lastIndex;
+  }
+  el.append(text.slice(last));
+}
+$('zoom').onclick = () => $('zoom').classList.remove('on');
+
+// ---------- Upload d'image : miniature + version complète WebP ----------
+const toBlob = (bmp, maxW, maxH, q) => new Promise(ok => {
+  const s = Math.min(1, maxW / bmp.width, maxH / bmp.height), c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); c.toBlob(ok, 'image/webp', q);
+});
+async function uploadInto(file, textarea, previewEl) {
+  if (!file) return;
+  try {
+    const bmp = await createImageBitmap(file), id = Math.random().toString(36).slice(2, 12), b = sb.storage.from('images');
+    const full = `${me.id}/${id}-full.webp`, thumb = `${me.id}/${id}-thumb.webp`;
+    const r1 = await b.upload(full, await toBlob(bmp, 1600, 1600, .85), { contentType: 'image/webp' });
+    const r2 = await b.upload(thumb, await toBlob(bmp, 400, 150, .8), { contentType: 'image/webp' });
+    if (r1.error || r2.error) throw (r1.error || r2.error);
+    const { error } = await sb.from('images').insert({ id, full_path: full, thumb_path: thumb });
+    if (error) throw error;
+    const p = textarea.selectionStart;
+    textarea.value = textarea.value.slice(0, p) + `[img:${id}]` + textarea.value.slice(textarea.selectionEnd);
+    textarea.focus(); render(textarea.value, previewEl);
+  } catch (e) { alert("Échec de l'envoi de l'image : " + (e.message || e)); }
+}
+$('msgFile').onchange = e => { uploadInto(e.target.files[0], $('msgText'), $('msgPrev')); e.target.value = ''; };
+$('bFile').onchange = e => { uploadInto(e.target.files[0], $('bText'), $('bPrev')); e.target.value = ''; };
+$('msgText').oninput = () => render($('msgText').value, $('msgPrev'));
+$('bText').oninput = () => render($('bText').value, $('bPrev'));
+
+// ---------- Connexion ----------
+$('login').onsubmit = async e => {
+  e.preventDefault();
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
+  if (error) $('loginErr').textContent = 'Connexion impossible : e-mail ou mot de passe incorrect.'; else start();
+};
+$('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+async function start() {
+  const { data } = await sb.auth.getSession(); if (!data.session) return;
+  me = data.session.user; $('login').hidden = true; $('app').hidden = false;
+  const { data: p } = await sb.from('profiles').select('pseudo').eq('id', me.id).maybeSingle();
+  $('who').textContent = p ? p.pseudo : me.email;
+  loadRooms(); loadBanners();
+}
+
+// ---------- Messageries ----------
+async function loadRooms() {
+  const { data } = await sb.from('rooms').select('id,title').order('created_at');
+  $('rooms').replaceChildren();
+  (data || []).forEach(r => {
+    const b = document.createElement('button'); b.className = 'room' + (room && room.id === r.id ? ' on' : ''); b.textContent = r.title;
+    b.onclick = () => openRoom(r); $('rooms').append(b);
+  });
+}
+$('newRoom').onclick = async () => {
+  const title = prompt('Nom du nouveau RP :'); if (!title) return;
+  const { data, error } = await sb.from('rooms').insert({ title: title.trim() }).select().single();
+  if (error) return alert(error.message);
+  await loadRooms(); openRoom(data);
+};
+$('addMember').onclick = async () => {
+  const pseudo = $('memberPseudo').value.trim(); if (!pseudo) return;
+  const { data: p } = await sb.from('profiles').select('id').eq('pseudo', pseudo).maybeSingle();
+  if (!p) return alert('Aucun utilisateur avec ce pseudo.');
+  const { error } = await sb.from('room_members').insert({ room_id: room.id, user_id: p.id });
+  alert(error ? "Ajout impossible (déjà membre, ou tu n'es pas le créateur de ce RP)." : pseudo + ' a été ajouté.');
+  $('memberPseudo').value = '';
+};
+async function openRoom(r) {
+  room = r; show('room'); $('roomTitle').textContent = r.title;
+  $('addRow').hidden = $('composer').hidden = false; loadRooms(); loadMessages();
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, loadMessages).subscribe();
+}
+async function loadMessages() {
+  const { data } = await sb.from('messages').select('id,content,created_at,author_id,profiles(pseudo)').eq('room_id', room.id).order('created_at');
+  await ensureImages((data || []).map(m => m.content).join('\n'));
+  $('msgs').replaceChildren();
+  for (const m of data || []) {
+    const d = document.createElement('div'); d.className = 'msg';
+    const h = document.createElement('header'); h.textContent = `${m.profiles ? m.profiles.pseudo : '?'} — ${new Date(m.created_at).toLocaleString('fr-FR')}`;
+    const b = document.createElement('div'); b.className = 'body'; await render(m.content, b);
+    d.append(h, b);
+    if (m.author_id === me.id) {
+      const del = document.createElement('button'); del.className = 'alt'; del.textContent = 'Supprimer';
+      del.onclick = async () => { if (confirm('Supprimer ce message ?')) { await sb.from('messages').delete().eq('id', m.id); loadMessages(); } };
+      d.append(del);
+    }
+    $('msgs').append(d);
+  }
+}
+$('send').onclick = async () => {
+  const content = $('msgText').value.trim(); if (!content) return;
+  const { error } = await sb.from('messages').insert({ room_id: room.id, content });
+  if (error) return alert(error.message);
+  $('msgText').value = ''; $('msgPrev').replaceChildren(); loadMessages();
+};
+
+// ---------- Bannières ----------
+async function loadBanners() {
+  const { data } = await sb.from('banners').select('id,character_name,content').order('created_at');
+  banners = data || []; $('pick').replaceChildren(); $('bList').replaceChildren();
+  banners.forEach((b, i) => {
+    $('pick').add(new Option(b.character_name, i));
+    const d = document.createElement('div'); d.className = 'msg';
+    const h = document.createElement('header'); h.textContent = b.character_name;
+    const p = document.createElement('div'); p.className = 'body'; render(b.content, p);
+    const row = document.createElement('div'); row.className = 'row';
+    const ed = document.createElement('button'); ed.className = 'alt'; ed.textContent = 'Modifier';
+    ed.onclick = async () => { $('bName').value = b.character_name; $('bText').value = b.content; await sb.from('banners').delete().eq('id', b.id); loadBanners(); render(b.content, $('bPrev')); };
+    const del = document.createElement('button'); del.className = 'alt'; del.textContent = 'Supprimer';
+    del.onclick = async () => { if (confirm('Supprimer cette bannière ?')) { await sb.from('banners').delete().eq('id', b.id); loadBanners(); } };
+    row.append(ed, del); d.append(h, p, row); $('bList').append(d);
+  });
+}
+$('bSave').onclick = async () => {
+  const character_name = $('bName').value.trim(), content = $('bText').value.trim();
+  if (!character_name || !content) return alert('Renseigne le nom du personnage et le texte.');
+  const { error } = await sb.from('banners').insert({ character_name, content });
+  if (error) return alert(error.message);
+  $('bName').value = $('bText').value = ''; $('bPrev').replaceChildren(); loadBanners();
+};
+$('insBanner').onclick = () => {
+  const b = banners[$('pick').value]; if (!b) return;
+  $('msgText').value = b.content + '\n\n' + $('msgText').value; render($('msgText').value, $('msgPrev'));
+};
+function show(v) { $('roomView').hidden = v !== 'room'; $('bannerView').hidden = v !== 'banners'; }
+$('toBanners').onclick = () => show('banners');
+$('toRoom').onclick = () => show('room');
+
+start();
+</script>
+</body>
+</html>
