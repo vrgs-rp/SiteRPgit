@@ -4,47 +4,70 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Messagerie RP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#1f2a2e;--panel:#283539;--line:#3b4a4f;--text:#e6e2d8;--muted:#9fb0b3;--link:#6fc3c0}
+:root{--bg:#172024;--panel:#202d32;--panel2:#293a40;--line:#38494f;--text:#ece8de;--muted:#9fb2b5;--link:#6fc3c0;--gold:#e7c46b;--danger:#e68b80}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 Figtree,system-ui,sans-serif}
 [hidden]{display:none!important}
-input,textarea,select{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:.55rem;font:inherit}
+h1,h2,h3,.brand,.card{font-family:Literata,Georgia,serif;font-weight:700;margin:.2rem 0}
+h2{font-size:1.6rem}h3{font-size:1.1rem;margin-top:1rem;color:var(--gold)}
+input,textarea,select{width:100%;background:#121a1d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:.6rem .75rem;font:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--link);outline:none;box-shadow:0 0 0 3px rgba(111,195,192,.2)}
 textarea{min-height:90px;resize:vertical}
-button,.filebtn{background:var(--link);color:#10201f;border:0;border-radius:4px;padding:.5rem .9rem;font:inherit;cursor:pointer}
-button.alt{background:transparent;color:var(--text);border:1px solid var(--line)}
+button,.filebtn{background:var(--link);color:#0f1d1c;border:0;border-radius:6px;padding:.5rem .95rem;font:inherit;font-weight:600;cursor:pointer}
+button:hover,.filebtn:hover{filter:brightness(1.1)}
+button.alt{background:transparent;color:var(--text);border:1px solid var(--line);font-weight:500}
+button.alt:hover{border-color:var(--link);filter:none}
+button.danger:hover{border-color:var(--danger);color:var(--danger)}
 :focus-visible{outline:2px solid var(--link);outline-offset:2px}
 input[type=file]{position:absolute;opacity:0;width:1px;height:1px}
-a{color:var(--link)}h2,h3{margin:.2rem 0}
+a{color:var(--link)}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.5rem 0}
 .hint{color:var(--muted);font-size:.9rem;margin:.2rem 0}
-#login{max-width:340px;margin:15vh auto;padding:1rem;display:grid;gap:.7rem}
-#app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
-aside{background:var(--panel);border-right:1px solid var(--line);padding:1rem;display:grid;gap:.5rem;align-content:start}
-aside button.room{text-align:left;background:transparent;color:var(--text);border:1px solid transparent}
-aside button.room.on{border-color:var(--link)}
-main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
-.card{min-height:120px;background:var(--panel);border:1px solid var(--line);color:var(--text);text-align:left;padding:1rem;font-size:1.1rem}
-.card:hover{border-color:var(--link)}
-.badge,.new{background:var(--link);color:#10201f;border-radius:10px;padding:0 .5rem;font-size:.8rem;margin-left:.4rem}
-.msg{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.7rem}
-.msg header{color:var(--muted);font-size:.85rem;margin-bottom:.3rem}
+#login{max-width:360px;margin:14vh auto;padding:1.5rem;display:grid;gap:.8rem;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+#app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:1.1rem 1rem;display:grid;gap:.5rem;align-content:start}
+aside button{width:100%;text-align:left}
+aside button.room{background:transparent;color:var(--text);border:1px solid transparent;font-weight:500}
+aside button.on,aside button.room.on{border-color:var(--link);background:rgba(111,195,192,.12)}
+.brand{font-size:1.35rem;color:var(--gold)}.who{color:var(--muted);font-size:.9rem;margin-bottom:.4rem}
+main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:grid;gap:1rem;align-content:start}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1rem}
+.card{min-height:130px;background:var(--panel);border:1px solid var(--line);color:var(--text);text-align:left;padding:1.1rem;font-size:1.25rem;border-radius:6px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:.6rem}
+.card:hover{border-color:var(--link);filter:none}
+.card.alt{border-style:dashed;background:transparent;color:var(--muted);font-weight:500}
+.badge,.new{background:var(--gold);color:#2b2208;border-radius:10px;padding:0 .55rem;font-size:.8rem;font-weight:700;font-family:Figtree,sans-serif}
+.badge{margin-left:.4rem}
+.msg{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.8rem 1rem;scroll-margin-top:1rem}
+.msg.mine{background:var(--panel2);border-left:3px solid var(--link)}
+.msg header{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;color:var(--muted);font-size:.85rem;margin-bottom:.45rem}
 .msg header strong{color:var(--text);font-size:1rem}
+.ava{width:28px;height:28px;border-radius:50%;background:var(--link);color:#0f1d1c;display:grid;place-items:center;font-weight:700}
 .msg .row{margin-top:1rem}
-.body{white-space:pre-wrap;overflow-wrap:anywhere}
-.body img{height:56px;vertical-align:middle;margin:0 .3rem;cursor:zoom-in;border-radius:2px}
-.preview{background:var(--bg);border-radius:4px;padding:.5rem;min-height:2.5rem}
+.body{font-family:Literata,Georgia,serif;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.body img{height:56px;vertical-align:middle;margin:0 .3rem;cursor:zoom-in;border-radius:3px}
+.preview{background:#121a1d;border-radius:6px;padding:.6rem .8rem;max-height:140px;overflow:auto}
+.preview:empty{display:none}
+.dock{position:sticky;bottom:0;z-index:5;background:linear-gradient(transparent,var(--bg) 16px);padding:1.4rem 0 .8rem;display:grid;gap:.6rem}
 .compose{display:grid;grid-template-columns:1fr 230px;gap:.8rem}
 #draftBox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.6rem;align-self:start}
-.pitem{padding:.5rem;border:1px solid var(--line);border-radius:4px;cursor:pointer;display:grid;gap:.2rem}
+#picker{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.7rem;display:grid;gap:.5rem;margin-top:.5rem}
+#pList{display:grid;gap:.4rem;max-height:min(340px,38vh);overflow:auto}
+.pitem{padding:.5rem .7rem;border:1px solid var(--line);border-radius:6px;cursor:pointer;display:grid;gap:.2rem}
 .pitem:hover{border-color:var(--link)}
-#picker{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.7rem;display:grid;gap:.5rem}
-#pList{display:grid;gap:.4rem;max-height:340px;overflow:auto}
-#zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:1rem}
+#zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:1rem;z-index:30}
 #zoom.on{display:flex}#zoom img{max-width:100%;max-height:100%}
 #zx{position:absolute;top:1rem;right:1rem;background:var(--panel);color:var(--text);font-size:1.3rem}
-@media(max-width:700px){#app,.compose{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}}
+#toast{position:fixed;left:50%;bottom:1.5rem;transform:translate(-50%,16px);background:var(--panel2);border:1px solid var(--link);padding:.6rem 1rem;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:40}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:700px){
+  #app,.compose{grid-template-columns:1fr}
+  aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
+  aside>*{flex:none;width:auto}#rooms{display:flex!important}.brand,.who{display:none}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
@@ -57,7 +80,8 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
 
 <div id="app" hidden>
   <aside>
-    <strong id="who"></strong>
+    <div class="brand">Messagerie RP</div>
+    <span id="who" class="who"></span>
     <button class="alt" id="toHome">Accueil</button>
     <div id="rooms" style="display:grid;gap:.3rem"></div>
     <button class="alt" id="newRoom">Nouveau RP</button>
@@ -68,13 +92,15 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
 
   <main id="homeView">
     <h2>Tableau de bord</h2>
+    <p class="hint">Choisis un RP pour reprendre où vous en étiez.</p>
     <div class="cards" id="homeCards"></div>
   </main>
 
   <main id="roomView" hidden>
-    <div class="row"><h2 id="roomTitle"></h2><button class="alt" id="delRoom" hidden>Supprimer ce RP</button></div>
+    <div class="row"><h2 id="roomTitle"></h2><button class="alt danger" id="delRoom" hidden>Supprimer ce RP</button></div>
     <div class="row"><input id="search" placeholder="Rechercher dans ce RP…" style="max-width:320px"><button class="alt" id="clearSearch">Effacer</button></div>
     <div id="msgs" style="display:grid;gap:.6rem"></div>
+    <div class="dock">
     <div>
       <button class="alt" id="togglePicker">Choisir une bannière</button>
       <div id="picker" hidden>
@@ -84,13 +110,14 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
     </div>
     <div class="compose">
       <div>
-        <textarea id="msgText" placeholder="Ton message…"></textarea>
+        <textarea id="msgText" placeholder="Ton message… (Ctrl+Entrée pour envoyer)"></textarea>
         <div class="row"><button id="send">Envoyer</button>
           <label class="filebtn">Insérer une image<input type="file" id="msgFile" accept="image/*"></label>
           <button class="alt" id="saveDraft">Enregistrer le brouillon</button><span class="hint" id="count">0 caractère</span></div>
         <div class="preview body" id="msgPrev"></div>
       </div>
       <div id="draftBox" aria-label="Brouillon"></div>
+    </div>
     </div>
   </main>
 
@@ -115,16 +142,18 @@ main{padding:1rem;display:grid;gap:1rem;align-content:start;max-width:960px}
     <div id="bList" style="display:grid;gap:.6rem"></div>
   </main>
 </div>
+<div id="toast" role="status"></div>
 <div id="zoom" role="dialog" aria-label="Image en grand"><button id="zx" aria-label="Fermer">✕</button><img alt=""></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 const sb = supabase.createClient('https://tjglotnquszxtuesyayi.supabase.co', 'sb_publishable_hBceLGFpCqalQen94mrbRw_EbYKb810');
 const $ = id => document.getElementById(id);
+function toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 3500); }
 const h = (t, p = {}, ...c) => { const e = Object.assign(document.createElement(t), p); e.append(...c); return e; };
 const byName = (a, b) => a.character_name.localeCompare(b.character_name, 'fr');
 const DAY = 864e5, mail = p => { p = p.trim().toLowerCase().replace(/\s+/g, ''); return p.includes('@') ? p : p + '@rp.example.com'; };
-let isAdmin = false, editingNote = null, me, rooms = [], room, banners = [], channel, seenCut, editingBanner = null, draft = null, draftTimer;
+let firstLoad = false, isAdmin = false, editingNote = null, me, rooms = [], room, banners = [], channel, seenCut, editingBanner = null, draft = null, draftTimer;
 const imgs = {};
 
 // ---------- Rendu sûr : texte + jetons [img:id] + liens, jamais de HTML ----------
@@ -171,7 +200,7 @@ async function uploadInto(file, ta, prev) {
     if (error) throw error;
     const p = ta.selectionStart; ta.value = ta.value.slice(0, p) + `[img:${id}]` + ta.value.slice(ta.selectionEnd);
     ta.focus(); ta.dispatchEvent(new Event('input'));
-  } catch (e) { alert("Échec de l'envoi de l'image : " + (e.message || e)); }
+  } catch (e) { toast("Échec de l'envoi de l'image : " + (e.message || e)); }
 }
 $('msgFile').onchange = e => { uploadInto(e.target.files[0], $('msgText'), $('msgPrev')); e.target.value = ''; };
 $('bFile').onchange = e => { uploadInto(e.target.files[0], $('bText'), $('bPrev')); e.target.value = ''; };
@@ -193,7 +222,8 @@ async function start() {
   await sb.from('drafts').delete().lt('updated_at', new Date(Date.now() - 3 * DAY).toISOString());
   await loadRooms(); await loadBanners(); show('home');
 }
-function show(v) { ['home', 'room', 'banner', 'notes'].forEach(n => $(n + 'View').hidden = n !== v); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); }
+function show(v) { ['home', 'room', 'banner', 'notes'].forEach(n => $(n + 'View').hidden = n !== v);
+  [['toHome', 'home'], ['toBanners', 'banner'], ['toNotes', 'notes']].forEach(([id, n]) => $(id).classList.toggle('on', v === n)); scrollTo(0, 0); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); }
 $('toHome').onclick = () => show('home');
 $('toBanners').onclick = () => show('banner');
 $('toNotes').onclick = () => show('notes');
@@ -216,7 +246,7 @@ async function loadRooms() {
 async function newRoom() {
   const title = prompt('Nom du nouveau RP :'); if (!title) return;
   const { data, error } = await sb.from('rooms').insert({ title: title.trim() }).select().single();
-  if (error) return alert(error.message);
+  if (error) return toast(error.message);
   await loadRooms(); openRoom(data);
 }
 $('newRoom').onclick = newRoom;
@@ -224,7 +254,7 @@ const markRead = id => sb.from('room_reads').upsert({ user_id: me.id, room_id: i
 
 async function openRoom(r) {
   if (room && $('msgText').value.trim()) await saveDraft();
-  room = r; $('delRoom').hidden = !isAdmin; $('roomTitle').textContent = r.title; $('msgText').value = ''; $('search').value = ''; $('msgPrev').replaceChildren(); countChars();
+  room = r; firstLoad = true; $('msgs').replaceChildren(h('p', { className: 'hint', textContent: 'Chargement…' })); $('delRoom').hidden = !isAdmin; $('roomTitle').textContent = r.title; $('msgText').value = ''; $('search').value = ''; $('msgPrev').replaceChildren(); countChars();
   $('pRoom').value = r.id; drawPicker(); show('room');
   const { data: rr } = await sb.from('room_reads').select('last_read_at').eq('room_id', r.id).maybeSingle();
   seenCut = rr ? rr.last_read_at : '1970-01-01'; await markRead(r.id);
@@ -237,26 +267,31 @@ async function openRoom(r) {
 async function loadMessages() {
   let qy = sb.from('messages').select('id,content,created_at,edited_at,author_id,profiles(pseudo)').eq('room_id', room.id).order('created_at');
   const q = $('search').value.trim(); if (q) qy = qy.ilike('content', '%' + q.replace(/[%_\\]/g, '\\$&') + '%');
+  const near = innerHeight + scrollY >= document.body.scrollHeight - 200;
   const { data } = await qy; await ensureImages((data || []).map(m => m.content).join('\n'));
   const out = [];
   for (const m of data || []) {
     const isNew = m.author_id !== me.id && m.created_at > seenCut;
-    const head = h('header', {}, `${m.profiles ? m.profiles.pseudo : '?'} — ${new Date(m.created_at).toLocaleString('fr-FR')}${m.edited_at ? ' (modifié)' : ''}`, ...(isNew ? [h('span', { className: 'new', textContent: 'Nouveau' })] : []));
+    const pseudo = m.profiles ? m.profiles.pseudo : '?';
+    const head = h('header', {}, h('span', { className: 'ava', textContent: pseudo[0].toUpperCase() }), h('strong', { textContent: pseudo }), h('span', { textContent: new Date(m.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) + (m.edited_at ? ' (modifié)' : '') }), ...(isNew ? [h('span', { className: 'new', textContent: 'Nouveau' })] : []));
     const body = h('div', { className: 'body' }); await render(m.content, body);
-    const d = h('div', { className: 'msg' }, head, body);
+    const d = h('div', { className: 'msg' + (m.author_id === me.id ? ' mine' : '') }, head, body);
     if (m.author_id === me.id) {
       const bar = h('div', { className: 'row' });
       bar.append(h('button', { className: 'alt', textContent: 'Modifier', onclick: () => {
         const ta = h('textarea', { value: m.content }); body.replaceChildren(ta);
         bar.replaceChildren(h('button', { textContent: 'Enregistrer', onclick: async () => {
           const { error } = await sb.from('messages').update({ content: ta.value.trim(), edited_at: new Date().toISOString() }).eq('id', m.id);
-          if (error) alert(error.message); loadMessages(); } }), h('button', { className: 'alt', textContent: 'Annuler', onclick: loadMessages }));
-      } }), h('button', { className: 'alt', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer ce message ?')) { await sb.from('messages').delete().eq('id', m.id); loadMessages(); } } }));
+          if (error) toast(error.message); loadMessages(); } }), h('button', { className: 'alt', textContent: 'Annuler', onclick: loadMessages }));
+      } }), h('button', { className: 'alt danger', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer ce message ?')) { await sb.from('messages').delete().eq('id', m.id); loadMessages(); } } }));
       d.append(bar);
     }
     out.push(d);
   }
+  if (!out.length) out.push(h('p', { className: 'hint', textContent: q ? 'Aucun message ne correspond à ta recherche.' : 'Aucun message pour le moment. Écris le premier !' }));
   $('msgs').replaceChildren(...out);
+  if (firstLoad) { firstLoad = false; const n = $('msgs').querySelector('.new'); if (n) n.closest('.msg').scrollIntoView({ block: 'start' }); else scrollTo(0, document.body.scrollHeight); }
+  else if (near) scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 let st; $('search').oninput = () => { clearTimeout(st); st = setTimeout(loadMessages, 300); };
 $('clearSearch').onclick = () => { $('search').value = ''; loadMessages(); };
@@ -270,7 +305,7 @@ $('msgText').oninput = () => {
 $('send').onclick = async () => {
   const content = $('msgText').value.trim(); if (!content) return;
   const { error } = await sb.from('messages').insert({ room_id: room.id, content });
-  if (error) return alert(error.message);
+  if (error) return toast(error.message);
   clearTimeout(draftTimer); await sb.from('drafts').delete().eq('room_id', room.id); draft = null; drawDraft();
   $('msgText').value = ''; $('msgPrev').replaceChildren(); countChars(); markRead(room.id); loadMessages();
 };
@@ -280,7 +315,8 @@ async function saveDraft() {
   const { error } = await sb.from('drafts').upsert({ user_id: me.id, room_id: room.id, content, updated_at });
   if (!error) { draft = { content, updated_at }; drawDraft(); }
 }
-$('saveDraft').onclick = saveDraft;
+$('saveDraft').onclick = async () => { await saveDraft(); toast('Brouillon enregistré.'); };
+$('msgText').addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') $('send').click(); });
 document.addEventListener('visibilitychange', () => document.hidden && saveDraft());
 async function loadDraft() {
   const { data } = await sb.from('drafts').select('content,updated_at').eq('room_id', room.id).maybeSingle();
@@ -333,7 +369,7 @@ function drawBannerList() {
       out.push(h('div', { className: 'msg' }, h('header', { textContent: b.character_name }), p, h('div', { className: 'row' },
         h('button', { className: 'alt', textContent: b.favorite ? '★ Favori' : '☆ Favori', 'aria-pressed': b.favorite, onclick: async () => { b.favorite = !b.favorite; await sb.from('banners').update({ favorite: b.favorite }).eq('id', b.id); drawBannerList(); drawPicker(); } }),
         h('button', { className: 'alt', textContent: 'Modifier', onclick: () => { editingBanner = b.id; $('bRoom').value = b.room_id || ''; $('bName').value = b.character_name; $('bText').value = b.content; render(b.content, $('bPrev')); scrollTo(0, 0); } }),
-        h('button', { className: 'alt', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette bannière ?')) { await sb.from('banners').delete().eq('id', b.id); loadBanners(); } } }))));
+        h('button', { className: 'alt danger', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette bannière ?')) { await sb.from('banners').delete().eq('id', b.id); loadBanners(); } } }))));
     });
   });
   $('bList').replaceChildren(...out);
@@ -342,17 +378,17 @@ function resetBanner() { editingBanner = null; $('bName').value = $('bText').val
 $('bCancel').onclick = resetBanner;
 $('bSave').onclick = async () => {
   const character_name = $('bName').value.trim(), content = $('bText').value.trim(), room_id = $('bRoom').value || null;
-  if (!character_name || !content) return alert('Renseigne le nom du personnage et le texte.');
+  if (!character_name || !content) return toast('Renseigne le nom du personnage et le texte.');
   const row = { character_name, content, room_id };
   const { error } = editingBanner ? await sb.from('banners').update(row).eq('id', editingBanner) : await sb.from('banners').insert(row);
-  if (error) return alert(error.message);
+  if (error) return toast(error.message);
   resetBanner(); loadBanners();
 };
 // ---------- Suppression d'un RP (administrateur uniquement, vérifié côté base) ----------
 $('delRoom').onclick = async () => {
   if (prompt('Cette action supprime le RP et tous ses messages, définitivement.\nTape le nom du RP pour confirmer :') !== room.title) return;
   const { data, error } = await sb.from('rooms').delete().eq('id', room.id).select();
-  if (error || !data.length) return alert("Suppression impossible : seul l'administrateur peut supprimer un RP.");
+  if (error || !data.length) return toast("Suppression impossible : seul l'administrateur peut supprimer un RP.");
   room = null; if (channel) sb.removeChannel(channel); show('home');
 };
 
@@ -364,7 +400,7 @@ async function loadNotes() {
     const p = h('div', { className: 'body' }); await render(n.content, p);
     out.push(h('div', { className: 'msg' }, h('header', {}, h('strong', { textContent: n.title })), p, h('div', { className: 'row' },
       h('button', { className: 'alt', textContent: 'Modifier', onclick: () => { editingNote = n.id; $('nTitle').value = n.title; $('nText').value = n.content; render(n.content, $('nPrev')); scrollTo(0, 0); } }),
-      h('button', { className: 'alt', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette note ?')) { await sb.from('notes').delete().eq('id', n.id); loadNotes(); } } }))));
+      h('button', { className: 'alt danger', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette note ?')) { await sb.from('notes').delete().eq('id', n.id); loadNotes(); } } }))));
   }
   $('nList').replaceChildren(...(out.length ? out : [h('p', { className: 'hint', textContent: 'Aucune note pour le moment.' })]));
 }
@@ -374,10 +410,10 @@ $('nText').oninput = () => render($('nText').value, $('nPrev'));
 $('nFile').onchange = e => { uploadInto(e.target.files[0], $('nText'), $('nPrev')); e.target.value = ''; };
 $('nSave').onclick = async () => {
   const title = $('nTitle').value.trim(), content = $('nText').value.trim();
-  if (!title || !content) return alert('Renseigne un titre et un texte.');
+  if (!title || !content) return toast('Renseigne un titre et un texte.');
   const row = { title, content, updated_at: new Date().toISOString() };
   const { error } = editingNote ? await sb.from('notes').update(row).eq('id', editingNote) : await sb.from('notes').insert(row);
-  if (error) return alert(error.message);
+  if (error) return toast(error.message);
   resetNote(); loadNotes();
 };
 start();
