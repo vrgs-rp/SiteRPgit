@@ -62,6 +62,14 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
 #zx{position:absolute;top:1rem;right:1rem;background:var(--panel);color:var(--text);font-size:1.3rem}
 #toast{position:fixed;left:50%;bottom:1.5rem;transform:translate(-50%,16px);background:var(--panel2);border:1px solid var(--link);padding:.6rem 1rem;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:40}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+.yt{display:inline-flex;align-items:center;gap:.4rem;max-width:100%;vertical-align:middle;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:.1rem .8rem .1rem .2rem;font:600 .85rem Figtree,sans-serif;color:var(--text);cursor:pointer}
+.yt:hover{border-color:var(--link)}
+.yt b{width:24px;height:24px;border-radius:50%;background:var(--link);color:#0f1d1c;display:grid;place-items:center;font-size:.7rem}
+.yt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:16em}
+#ytdock{position:fixed;top:1rem;right:1rem;z-index:15;width:min(320px,calc(100vw - 2rem));background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ythead{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:.85rem}
+#ytTitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ytFrame iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:4px;display:block}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -142,6 +150,10 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
     <div id="bList" style="display:grid;gap:.6rem"></div>
   </main>
 </div>
+<div id="ytdock" hidden>
+  <div class="ythead"><span id="ytTitle"></span><a id="ytLink" target="_blank" rel="noopener noreferrer">YouTube ↗</a><button class="alt" id="ytClose" aria-label="Fermer le lecteur">✕</button></div>
+  <div id="ytFrame"></div>
+</div>
 <div id="toast" role="status"></div>
 <div id="zoom" role="dialog" aria-label="Image en grand"><button id="zx" aria-label="Fermer">✕</button><img alt=""></div>
 
@@ -172,7 +184,7 @@ async function render(text, el) {
     if (m[1] && imgs[m[1]]) {
       const id = m[1], open = () => { $('zoom').querySelector('img').src = imgs[id].full; $('zoom').classList.add('on'); };
       el.append(h('img', { src: imgs[id].thumb, alt: 'image', tabIndex: 0, onclick: open, onkeydown: e => e.key === 'Enter' && open() }));
-    } else if (m[2]) el.append(h('a', { href: m[2], textContent: m[2], target: '_blank', rel: 'noopener noreferrer' }));
+    } else if (m[2]) { const pill = ytId(m[2]) ? ytPill(m[2]) : null; if (pill) pill.dataset.id = ytId(m[2]); el.append(pill || h('a', { href: m[2], textContent: m[2], target: '_blank', rel: 'noopener noreferrer' })); }
     else el.append(m[0]);
     last = re.lastIndex;
   }
@@ -181,6 +193,26 @@ async function render(text, el) {
 const closeZoom = () => $('zoom').classList.remove('on');
 $('zoom').onclick = e => { if (e.target.tagName !== 'IMG') closeZoom(); };
 document.addEventListener('keydown', e => e.key === 'Escape' && closeZoom());
+
+// ---------- Lecteur YouTube : un lien devient un bouton qui lance le lecteur flottant ----------
+const ytTitles = {};
+const ytId = u => (u.match(/^https?:\/\/(?:www\.|m\.|music\.)?(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^\s]*&)?v=|shorts\/|embed\/))([\w-]{11})/) || [])[1];
+function ytPill(url) {
+  const id = ytId(url), t = (url.match(/[?&]t=(\d+)/) || [])[1];
+  const play = () => playYt(id, t, url);
+  if (ytTitles[id] === undefined) {
+    ytTitles[id] = null;
+    fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(url)).then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => { ytTitles[id] = d.title; document.querySelectorAll('.yt[data-id="' + id + '"] span').forEach(e => e.textContent = d.title); }).catch(() => {});
+  }
+  return h('span', { className: 'yt', role: 'button', tabIndex: 0, title: 'Écouter', onclick: play, onkeydown: e => e.key === 'Enter' && play() },
+    h('b', { textContent: '▶' }), h('span', { textContent: ytTitles[id] || 'Écouter la vidéo' }));
+}
+function playYt(id, t, url) {
+  $('ytFrame').replaceChildren(h('iframe', { src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0${t ? '&start=' + t : ''}`, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowFullscreen: true, title: ytTitles[id] || 'Lecteur YouTube' }));
+  $('ytTitle').textContent = ytTitles[id] || 'Vidéo YouTube'; $('ytLink').href = url; $('ytdock').hidden = false;
+}
+$('ytClose').onclick = () => { $('ytFrame').replaceChildren(); $('ytdock').hidden = true; };
 
 // ---------- Upload d'image : miniature + version complète WebP ----------
 const toBlob = (bmp, mw, mh, q) => new Promise(ok => {
