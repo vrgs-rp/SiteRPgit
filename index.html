@@ -81,6 +81,8 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
 .bar b{color:var(--muted);font-weight:600}
 .pinbox{background:#fff;border-radius:6px;padding:.5rem;margin-top:.6rem;overflow:auto;color:#222}
 .pinbox a{color:#222}
+.grip{cursor:grab;color:var(--muted);font-size:1.3rem;padding:0 .3rem;user-select:none}
+.vrow.drag{opacity:.4}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -182,7 +184,7 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
     <div class="row"><label class="filebtn">Insérer une image<input type="file" id="bFile" accept="image/*"></label></div>
     <div class="preview body" id="bPrev"></div>
     <h3>Autres apparences (facultatif)</h3>
-    <p class="hint">Le texte ci-dessus est l'apparence par défaut. Ajoute ici les autres apparences du personnage (nouvelle tenue, évolution…) : tu pourras en choisir une au moment d'insérer la bannière.</p>
+    <p class="hint">Le texte ci-dessus est l'apparence par défaut. Ajoute ici les autres apparences du personnage (nouvelle tenue, évolution…) : tu pourras en choisir une au moment d'insérer la bannière. Réorganise-les avec la poignée ⠿ (glisser-déposer) ou les flèches, puis enregistre. L'apparence par défaut reste toujours en premier.</p>
     <div id="bVariants" style="display:grid;gap:.8rem"></div>
     <div class="row"><button class="alt" id="bAddVar">+ Ajouter une apparence</button></div>
     <div class="row"><button id="bSave">Enregistrer</button><button class="alt" id="bCancel">Annuler la modification</button></div>
@@ -455,17 +457,32 @@ function drawBannerList() {
   });
   $('bList').replaceChildren(...out);
 }
+let dragRow = null;
 function addVariantRow(v = { label: '', content: '' }) {
-  const label = h('input', { value: v.label, placeholder: "Nom de l'apparence (ex : Tenue de combat)" });
+  const label = h('input', { value: v.label, placeholder: "Nom de l'apparence (ex : Tenue de combat)", style: 'flex:1;min-width:140px;width:auto' });
   const ta = h('textarea', { value: v.content, placeholder: 'Texte de la bannière pour cette apparence (avec son image)' });
   const prev = h('div', { className: 'preview body' }); render(v.content, prev);
   ta.oninput = () => render(ta.value, prev);
   const file = h('input', { type: 'file', accept: 'image/*' });
   file.onchange = e => { uploadInto(e.target.files[0], ta, prev); e.target.value = ''; };
-  const row = h('div', { className: 'stat vrow', style: 'display:grid;gap:.5rem' }, label, ta,
-    h('div', { className: 'row', style: 'margin:0' }, h('label', { className: 'filebtn' }, 'Insérer une image', file), h('button', { className: 'alt danger', type: 'button', textContent: 'Retirer cette apparence', onclick: () => row.remove() })), prev);
+  const grip = h('span', { className: 'grip', textContent: '⠿', title: 'Glisser pour réorganiser' });
+  grip.onmousedown = () => row.draggable = true; grip.onmouseup = () => row.draggable = false;
+  const move = (txt, name, fn) => h('button', { className: 'alt', type: 'button', textContent: txt, title: name, 'aria-label': name, onclick: fn });
+  const row = h('div', { className: 'stat vrow', style: 'display:grid;gap:.5rem' },
+    h('div', { className: 'row', style: 'margin:0;flex-wrap:nowrap' }, grip, label,
+      move('↑', 'Monter cette apparence', () => { const q = row.previousElementSibling; if (q) q.before(row); }),
+      move('↓', 'Descendre cette apparence', () => { const q = row.nextElementSibling; if (q) q.after(row); })),
+    ta, h('div', { className: 'row', style: 'margin:0' }, h('label', { className: 'filebtn' }, 'Insérer une image', file), h('button', { className: 'alt danger', type: 'button', textContent: 'Retirer cette apparence', onclick: () => row.remove() })), prev);
+  row.ondragstart = e => { dragRow = row; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'apparence'); row.classList.add('drag'); };
+  row.ondragend = () => { dragRow = null; row.draggable = false; row.classList.remove('drag'); };
   row._l = label; row._t = ta; $('bVariants').append(row);
 }
+$('bVariants').ondragover = e => {
+  if (!dragRow) return; e.preventDefault();
+  const after = [...$('bVariants').children].filter(c => c !== dragRow).find(c => e.clientY < c.getBoundingClientRect().top + c.offsetHeight / 2);
+  $('bVariants').insertBefore(dragRow, after || null);
+};
+$('bVariants').ondrop = e => e.preventDefault();
 $('bAddVar').onclick = () => addVariantRow();
 function resetBanner() { editingBanner = null; $('bName').value = $('bText').value = ''; $('bPrev').replaceChildren(); $('bVariants').replaceChildren(); }
 $('bCancel').onclick = resetBanner;
