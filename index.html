@@ -83,6 +83,10 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
 .pinbox a{color:#222}
 .grip{cursor:grab;color:var(--muted);font-size:1.3rem;padding:0 .3rem;user-select:none}
 .vrow.drag{opacity:.4}
+details.vars{margin-top:.6rem}
+details.vars summary{cursor:pointer;color:var(--muted);font-size:.9rem;width:fit-content}
+details.vars[open] summary{color:var(--text)}
+details.vars .stat{margin-top:.5rem}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -449,7 +453,7 @@ function drawBannerList() {
     out.push(h('h3', { textContent: title }));
     l.forEach(b => {
       const p = h('div', { className: 'body' }); render(b.content, p);
-      out.push(h('div', { className: 'msg' }, h('header', { textContent: b.character_name }), p, ...(b.variants || []).map(v => { const vp = h('div', { className: 'body' }); render(v.content, vp); return h('div', { className: 'stat' }, h('div', { className: 'hint', textContent: v.label }), vp); }), h('div', { className: 'row' },
+      out.push(h('div', { className: 'msg' }, h('header', { textContent: b.character_name }), p, ...((b.variants || []).length ? [h('details', { className: 'vars' }, h('summary', { textContent: b.variants.length + (b.variants.length > 1 ? ' autres apparences' : ' autre apparence') }), ...b.variants.map(v => { const vp = h('div', { className: 'body' }); render(v.content, vp); return h('div', { className: 'stat' }, h('div', { className: 'hint', textContent: v.label }), vp); }))] : []), h('div', { className: 'row' },
         h('button', { className: 'alt', textContent: b.favorite ? '★ Favori' : '☆ Favori', 'aria-pressed': b.favorite, onclick: async () => { b.favorite = !b.favorite; await sb.from('banners').update({ favorite: b.favorite }).eq('id', b.id); drawBannerList(); drawPicker(); } }),
         h('button', { className: 'alt', textContent: 'Modifier', onclick: () => { editingBanner = b.id; $('bRoom').value = b.room_id || ''; $('bName').value = b.character_name; $('bText').value = b.content; render(b.content, $('bPrev')); $('bVariants').replaceChildren(); (b.variants || []).forEach(addVariantRow); scrollTo(0, 0); } }),
         h('button', { className: 'alt danger', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer cette bannière ?')) { await sb.from('banners').delete().eq('id', b.id); loadBanners(); } } }))));
