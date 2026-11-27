@@ -79,6 +79,8 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
 .bar{display:grid;grid-template-columns:minmax(80px,1fr) 2fr auto;gap:.6rem;align-items:center;font-size:.9rem;margin:.3rem 0}
 .bar i{display:block;height:8px;border-radius:4px;background:var(--link);min-width:2px}
 .bar b{color:var(--muted);font-weight:600}
+.pinbox{background:#fff;border-radius:6px;padding:.5rem;margin-top:.6rem;overflow:auto;color:#222}
+.pinbox a{color:#222}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -104,6 +106,7 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
     <button class="alt" id="newRoom">Nouveau RP</button>
     <button class="alt" id="toBanners">Mes bannières</button>
     <button class="alt" id="toNotes">Notes</button>
+    <button class="alt" id="toRes">Ressources</button>
     <button class="alt" id="toStats">Statistiques</button>
     <button class="alt" id="logout">Se déconnecter</button>
   </aside>
@@ -137,6 +140,20 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
       <div id="draftBox" aria-label="Brouillon"></div>
     </div>
     </div>
+  </main>
+
+  <main id="resourcesView" hidden>
+    <h2>Ressources</h2>
+    <p class="hint">Accès rapide à vos arbres FamilyEcho et à votre tableau Pinterest. Visible par vous deux.</p>
+    <div class="stat" style="display:grid;gap:.5rem">
+      <strong>Ajouter une ressource</strong>
+      <div class="row" style="margin:0"><select id="rKind" style="max-width:220px" aria-label="Type"><option value="tree">Arbre FamilyEcho</option><option value="pinterest">Tableau Pinterest</option></select><select id="rRoom" style="max-width:260px" aria-label="RP associé"></select></div>
+      <input id="rTitle" placeholder="Titre (ex : Famille de Sethis)">
+      <input id="rUrl" placeholder="Lien complet https://…">
+      <div class="row" style="margin:0"><button id="rAdd">Ajouter</button></div>
+    </div>
+    <select id="rRoomFilter" style="max-width:280px" aria-label="Filtrer par RP"></select>
+    <div id="rList" style="display:grid;gap:1.2rem"></div>
   </main>
 
   <main id="statsView" hidden>
@@ -271,12 +288,13 @@ async function start() {
   await sb.from('drafts').delete().lt('updated_at', new Date(Date.now() - 3 * DAY).toISOString());
   await loadRooms(); await loadBanners(); show('home');
 }
-function show(v) { ['home', 'room', 'banner', 'notes', 'stats'].forEach(n => $(n + 'View').hidden = n !== v);
-  [['toHome', 'home'], ['toBanners', 'banner'], ['toNotes', 'notes'], ['toStats', 'stats']].forEach(([id, n]) => $(id).classList.toggle('on', v === n)); scrollTo(0, 0); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); if (v === 'stats') loadStats(); }
+function show(v) { ['home', 'room', 'banner', 'notes', 'stats', 'resources'].forEach(n => $(n + 'View').hidden = n !== v);
+  [['toHome', 'home'], ['toBanners', 'banner'], ['toNotes', 'notes'], ['toStats', 'stats'], ['toRes', 'resources']].forEach(([id, n]) => $(id).classList.toggle('on', v === n)); scrollTo(0, 0); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); if (v === 'stats') loadStats(); if (v === 'resources') loadResources(); }
 $('toHome').onclick = () => show('home');
 $('toBanners').onclick = () => show('banner');
 $('toNotes').onclick = () => show('notes');
 $('toStats').onclick = () => show('stats');
+$('toRes').onclick = () => show('resources');
 
 // ---------- RP et indicateurs de nouveaux messages ----------
 async function loadRooms() {
@@ -288,7 +306,7 @@ async function loadRooms() {
   }));
   $('rooms').replaceChildren(...rooms.map(r => h('button', { className: 'room' + (room && room.id === r.id ? ' on' : ''), onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread })] : []))));
   $('homeCards').replaceChildren(...rooms.map(r => h('button', { className: 'card', onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread + ' nouveau' + (r.unread > 1 ? 'x' : '') })] : []))),
-    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'), h('button', { className: 'card alt', onclick: () => show('notes') }, 'Notes'), h('button', { className: 'card alt', onclick: () => show('stats') }, 'Statistiques'));
+    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'), h('button', { className: 'card alt', onclick: () => show('notes') }, 'Notes'), h('button', { className: 'card alt', onclick: () => show('resources') }, 'Ressources'), h('button', { className: 'card alt', onclick: () => show('stats') }, 'Statistiques'));
   for (const id of ['pRoom', 'bRoom']) {
     const cur = $(id).value; $(id).replaceChildren(...rooms.map(r => new Option(r.title, r.id)), ...(id === 'bRoom' ? [new Option('Sans RP', '')] : [])); if (cur !== '') $(id).value = cur;
   }
@@ -481,6 +499,56 @@ function drawStats() {
       bars('Posts par auteur', topN(auth)), bars('Mots par auteur', topN(authW)), bars('Personnages les plus utilisés', topN(chars)),
       bars('Posts par RP', topN(roomP)), bars('Mots les plus utilisés (5 lettres et +)', topN(words)), bars('Activité par mois', monthEnt), bars('Posts par jour de la semaine', DN.map((n, i) => [n, days[i]]))));
 }
+
+// ---------- Ressources : arbres FamilyEcho et tableaux Pinterest ----------
+let resources = [];
+function pinBuild() {
+  if (window.doBuild) return window.doBuild();
+  if (window.pinLoading) return; window.pinLoading = true;
+  const sc = document.createElement('script'); sc.src = 'https://assets.pinterest.com/js/pinit.js'; sc.async = true;
+  sc.setAttribute('data-pin-build', 'doBuild'); sc.onload = () => window.doBuild && window.doBuild(); document.head.append(sc);
+}
+async function loadResources() {
+  const cur = $('rRoomFilter').value || 'all';
+  $('rRoomFilter').replaceChildren(new Option('Tous les RP', 'all'), ...rooms.map(r => new Option(r.title, r.id)), new Option('Sans RP', 'none')); $('rRoomFilter').value = cur;
+  $('rRoom').replaceChildren(new Option('Aucun RP en particulier', ''), ...rooms.map(r => new Option(r.title, r.id)));
+  const { data } = await sb.from('resources').select('id,kind,title,url,room_id').order('title');
+  resources = data || []; drawResources();
+}
+$('rRoomFilter').onchange = () => drawResources();
+function drawResources() {
+  const f = $('rRoomFilter').value, titles = Object.fromEntries(rooms.map(r => [r.id, r.title]));
+  const list = resources.filter(x => f === 'all' || (f === 'none' ? !x.room_id : x.room_id === f));
+  const item = x => {
+    const head = h('header', {}, h('strong', { textContent: x.title }), ...(titles[x.room_id] ? [h('span', { textContent: titles[x.room_id] })] : []));
+    const bar = h('div', { className: 'row' }), box = h('div');
+    bar.append(h('a', { href: x.url, target: '_blank', rel: 'noopener noreferrer', textContent: 'Ouvrir ↗' }));
+    if (x.kind === 'pinterest') {
+      const t = h('button', { className: 'alt', textContent: 'Afficher ici' });
+      t.onclick = () => {
+        if (box.firstChild) { box.replaceChildren(); t.textContent = 'Afficher ici'; return; }
+        const a = h('a', { href: x.url, textContent: 'Afficher « ' + x.title + ' » sur Pinterest', target: '_blank', rel: 'noopener noreferrer' });
+        a.setAttribute('data-pin-do', 'embedBoard'); a.setAttribute('data-pin-scale-height', '420'); a.setAttribute('data-pin-scale-width', '115');
+        box.replaceChildren(h('div', { className: 'pinbox' }, a)); t.textContent = 'Masquer'; pinBuild();
+      };
+      bar.prepend(t);
+    }
+    bar.append(h('button', { className: 'alt danger', textContent: 'Supprimer', onclick: async () => { if (confirm('Retirer cette ressource ?')) { await sb.from('resources').delete().eq('id', x.id); loadResources(); } } }));
+    return h('div', { className: 'msg' }, head, bar, box);
+  };
+  const section = (title, kind) => { const l = list.filter(x => x.kind === kind); return h('div', {}, h('h3', { textContent: title }), ...(l.length ? l.map(item) : [h('p', { className: 'hint', textContent: 'Rien pour le moment.' })])); };
+  $('rList').replaceChildren(section('Arbres FamilyEcho', 'tree'), section('Tableaux Pinterest', 'pinterest'));
+}
+$('rAdd').onclick = async () => {
+  const title = $('rTitle').value.trim(), url = $('rUrl').value.trim(), kind = $('rKind').value;
+  let host = ''; try { host = new URL(url).hostname; } catch (e) {}
+  if (!title || !/^https:\/\//i.test(url)) return toast('Renseigne un titre et un lien complet commençant par https://');
+  if (kind === 'pinterest' && !/(^|\.)pinterest\.[a-z.]+$/.test(host)) return toast('Le lien doit être une adresse pinterest.');
+  if (kind === 'tree' && !/(^|\.)familyecho\.com$/.test(host)) return toast('Le lien doit être une adresse familyecho.com.');
+  const { error } = await sb.from('resources').insert({ kind, title, url, room_id: $('rRoom').value || null });
+  if (error) return toast(error.message);
+  $('rTitle').value = $('rUrl').value = ''; loadResources();
+};
 
 // ---------- Suppression d'un RP (administrateur uniquement, vérifié côté base) ----------
 $('delRoom').onclick = async () => {
