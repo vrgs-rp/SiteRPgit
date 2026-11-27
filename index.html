@@ -66,10 +66,19 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
 .yt:hover{border-color:var(--link)}
 .yt b{width:24px;height:24px;border-radius:50%;background:var(--link);color:#0f1d1c;display:grid;place-items:center;font-size:.7rem}
 .yt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:16em}
-#ytdock{position:fixed;top:1rem;right:1rem;z-index:15;width:min(320px,calc(100vw - 2rem));background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#ytdock{position:fixed;bottom:calc(var(--dockH,0px) + 1rem);right:1rem;z-index:15;width:min(320px,calc(100vw - 2rem));background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .ythead{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:.85rem}
 #ytTitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #ytFrame iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:4px;display:block}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.8rem}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.8rem}
+.tile b{display:block;font:700 1.6rem Literata,Georgia,serif;color:var(--gold)}.tile span{color:var(--muted);font-size:.85rem}
+.stats2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:.8rem 1rem}
+.stat h3{margin-top:0}
+.bar{display:grid;grid-template-columns:minmax(80px,1fr) 2fr auto;gap:.6rem;align-items:center;font-size:.9rem;margin:.3rem 0}
+.bar i{display:block;height:8px;border-radius:4px;background:var(--link);min-width:2px}
+.bar b{color:var(--muted);font-weight:600}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -95,6 +104,7 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
     <button class="alt" id="newRoom">Nouveau RP</button>
     <button class="alt" id="toBanners">Mes bannières</button>
     <button class="alt" id="toNotes">Notes</button>
+    <button class="alt" id="toStats">Statistiques</button>
     <button class="alt" id="logout">Se déconnecter</button>
   </aside>
 
@@ -127,6 +137,13 @@ main{width:100%;max-width:920px;margin:0 auto;padding:1.5rem 1.2rem 0;display:gr
       <div id="draftBox" aria-label="Brouillon"></div>
     </div>
     </div>
+  </main>
+
+  <main id="statsView" hidden>
+    <h2>Statistiques</h2>
+    <select id="statRoom" aria-label="RP" style="max-width:280px"></select>
+    <div id="statsBody" style="display:grid;gap:1rem"></div>
+    <p class="hint">Les mots et caractères ne comptent ni les bannières, ni les liens, ni les images. Les personnages sont repérés à partir de la première ligne des posts, au format « [] Nom - … ».</p>
   </main>
 
   <main id="notesView" hidden>
@@ -254,11 +271,12 @@ async function start() {
   await sb.from('drafts').delete().lt('updated_at', new Date(Date.now() - 3 * DAY).toISOString());
   await loadRooms(); await loadBanners(); show('home');
 }
-function show(v) { ['home', 'room', 'banner', 'notes'].forEach(n => $(n + 'View').hidden = n !== v);
-  [['toHome', 'home'], ['toBanners', 'banner'], ['toNotes', 'notes']].forEach(([id, n]) => $(id).classList.toggle('on', v === n)); scrollTo(0, 0); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); }
+function show(v) { ['home', 'room', 'banner', 'notes', 'stats'].forEach(n => $(n + 'View').hidden = n !== v);
+  [['toHome', 'home'], ['toBanners', 'banner'], ['toNotes', 'notes'], ['toStats', 'stats']].forEach(([id, n]) => $(id).classList.toggle('on', v === n)); scrollTo(0, 0); if (v === 'home') loadRooms(); if (v === 'notes') loadNotes(); if (v === 'stats') loadStats(); }
 $('toHome').onclick = () => show('home');
 $('toBanners').onclick = () => show('banner');
 $('toNotes').onclick = () => show('notes');
+$('toStats').onclick = () => show('stats');
 
 // ---------- RP et indicateurs de nouveaux messages ----------
 async function loadRooms() {
@@ -270,7 +288,7 @@ async function loadRooms() {
   }));
   $('rooms').replaceChildren(...rooms.map(r => h('button', { className: 'room' + (room && room.id === r.id ? ' on' : ''), onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread })] : []))));
   $('homeCards').replaceChildren(...rooms.map(r => h('button', { className: 'card', onclick: () => openRoom(r) }, r.title, ...(r.unread ? [h('span', { className: 'badge', textContent: r.unread + ' nouveau' + (r.unread > 1 ? 'x' : '') })] : []))),
-    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'), h('button', { className: 'card alt', onclick: () => show('notes') }, 'Notes'));
+    h('button', { className: 'card alt', onclick: newRoom }, '+ Nouveau RP'), h('button', { className: 'card alt', onclick: () => show('notes') }, 'Notes'), h('button', { className: 'card alt', onclick: () => show('stats') }, 'Statistiques'));
   for (const id of ['pRoom', 'bRoom']) {
     const cur = $(id).value; $(id).replaceChildren(...rooms.map(r => new Option(r.title, r.id)), ...(id === 'bRoom' ? [new Option('Sans RP', '')] : [])); if (cur !== '') $(id).value = cur;
   }
@@ -416,6 +434,54 @@ $('bSave').onclick = async () => {
   if (error) return toast(error.message);
   resetBanner(); loadBanners();
 };
+// ---------- Statistiques ----------
+const STOP = new Set('alors aussi avait avant avec cette comme dans donc elle elles encore entre était étaient être fait faire leur leurs mais même moins nous parce pendant plus pour quand sans sera sont sous tout tous toute toutes très vers vous votre cela ceux dont puis ainsi après depuis'.split(' '));
+let statMsgs = [], statImgs = 0;
+async function loadStats() {
+  $('statsBody').replaceChildren(h('p', { className: 'hint', textContent: 'Calcul en cours…' }));
+  const cur = $('statRoom').value;
+  $('statRoom').replaceChildren(new Option('Tous les RP', ''), ...rooms.map(r => new Option(r.title, r.id))); $('statRoom').value = cur;
+  statMsgs = []; for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from('messages').select('content,created_at,author_id,room_id,profiles(pseudo)').order('created_at').range(from, from + 999);
+    if (error || !data) break; statMsgs = statMsgs.concat(data); if (data.length < 1000) break;
+  }
+  const { count } = await sb.from('images').select('id', { count: 'exact', head: true }); statImgs = count || 0;
+  drawStats();
+}
+$('statRoom').onchange = () => drawStats();
+const topN = (o, n = 10) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
+const bars = (title, ent) => {
+  const max = Math.max(1, ...ent.map(e => e[1]));
+  return h('section', { className: 'stat' }, h('h3', { textContent: title }), ...(ent.length ? ent.map(([l, v]) => h('div', { className: 'bar' }, h('span', { textContent: l }), h('i', { style: `width:${Math.round(v / max * 100)}%` }), h('b', { textContent: v.toLocaleString('fr-FR') }))) : [h('p', { className: 'hint', textContent: 'Rien à afficher pour le moment.' })]));
+};
+function drawStats() {
+  const rid = $('statRoom').value, ms = statMsgs.filter(m => !rid || m.room_id === rid);
+  const auth = {}, authW = {}, chars = {}, words = {}, months = {}, roomP = {}, days = Array(7).fill(0), hours = Array(24).fill(0);
+  const DN = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'], titles = Object.fromEntries(rooms.map(r => [r.id, r.title]));
+  let W = 0, C = 0, longest = null;
+  for (const m of ms) {
+    const lines = m.content.split('\n'), banner = /^\s*\[\]/.test(lines[0]), bm = lines[0].match(/^\s*\[\]\s*(.+?)\s+-\s+/);
+    if (bm) chars[bm[1]] = (chars[bm[1]] || 0) + 1;
+    const body = (banner ? lines.slice(1).join('\n') : m.content).replace(/\[img:[a-z0-9]+\]|https?:\/\/\S+/g, ' ');
+    const n = body.split(/\s+/).filter(Boolean).length, who = m.profiles ? m.profiles.pseudo : '?', d = new Date(m.created_at);
+    W += n; C += body.trim().length; auth[who] = (auth[who] || 0) + 1; authW[who] = (authW[who] || 0) + n;
+    roomP[titles[m.room_id] || '?'] = (roomP[titles[m.room_id] || '?'] || 0) + 1;
+    for (const w of body.toLowerCase().match(/[a-zà-ÿœ]{5,}/g) || []) if (!STOP.has(w)) words[w] = (words[w] || 0) + 1;
+    const key = m.created_at.slice(0, 7); months[key] = (months[key] || 0) + 1;
+    days[(d.getDay() + 6) % 7]++; hours[d.getHours()]++;
+    if (!longest || n > longest.n) longest = { n, who };
+  }
+  const tile = (l, v) => h('div', { className: 'tile' }, h('b', { textContent: v }), h('span', { textContent: l }));
+  const fr = n => n.toLocaleString('fr-FR'), maxI = a => a.indexOf(Math.max(...a));
+  const monthEnt = Object.keys(months).sort().slice(-12).map(k => [new Date(k + '-01').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }), months[k]]);
+  $('statsBody').replaceChildren(
+    h('div', { className: 'tiles' }, tile('posts', fr(ms.length)), tile('mots', fr(W)), tile('caractères', fr(C)), tile('mots par post', ms.length ? fr(Math.round(W / ms.length)) : '0'),
+      tile('images hébergées', fr(statImgs)), ...(ms.length ? [tile('heure la plus active', maxI(hours) + ' h'), tile('jour le plus actif', DN[maxI(days)]), tile('post le plus long', fr(longest.n) + ' mots (' + longest.who + ')')] : [])),
+    h('div', { className: 'stats2' },
+      bars('Posts par auteur', topN(auth)), bars('Mots par auteur', topN(authW)), bars('Personnages les plus utilisés', topN(chars)),
+      bars('Posts par RP', topN(roomP)), bars('Mots les plus utilisés (5 lettres et +)', topN(words)), bars('Activité par mois', monthEnt), bars('Posts par jour de la semaine', DN.map((n, i) => [n, days[i]]))));
+}
+
 // ---------- Suppression d'un RP (administrateur uniquement, vérifié côté base) ----------
 $('delRoom').onclick = async () => {
   if (prompt('Cette action supprime le RP et tous ses messages, définitivement.\nTape le nom du RP pour confirmer :') !== room.title) return;
@@ -448,6 +514,7 @@ $('nSave').onclick = async () => {
   if (error) return toast(error.message);
   resetNote(); loadNotes();
 };
+new ResizeObserver(() => document.documentElement.style.setProperty('--dockH', $('roomView').hidden ? '0px' : document.querySelector('.dock').offsetHeight + 'px')).observe(document.querySelector('.dock'));
 start();
 </script>
 </body>
