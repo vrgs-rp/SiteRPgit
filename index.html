@@ -88,6 +88,7 @@ details.vars{margin-top:.6rem}
 details.vars summary{cursor:pointer;color:var(--muted);font-size:.9rem;width:fit-content}
 details.vars[open] summary{color:var(--text)}
 details.vars .stat{margin-top:.5rem}
+.msg.focus{outline:2px solid var(--gold)}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -127,7 +128,9 @@ details.vars .stat{margin-top:.5rem}
   <main id="roomView" hidden>
     <div class="row"><h2 id="roomTitle"></h2><button class="alt danger" id="delRoom" hidden>Supprimer ce RP</button></div>
     <div class="row"><input id="search" placeholder="Rechercher dans ce RP…" style="max-width:320px"><button class="alt" id="clearSearch">Effacer</button></div>
+    <div id="pagerTop"></div>
     <div id="msgs" style="display:grid;gap:.6rem"></div>
+    <div id="pagerBottom"></div>
     <div class="dock">
     <div>
       <button class="alt" id="togglePicker">Choisir une bannière</button>
@@ -166,6 +169,11 @@ details.vars .stat{margin-top:.5rem}
   <main id="statsView" hidden>
     <h2>Statistiques</h2>
     <select id="statRoom" aria-label="RP" style="max-width:280px"></select>
+    <div id="adminBox" class="stat" hidden style="display:grid;gap:.5rem">
+      <strong>Utilisation de l'hébergement (administrateur)</strong>
+      <div id="usage"></div>
+      <div class="row" style="margin:0"><button class="alt" id="cleanImgs">Nettoyer les images inutilisées</button></div>
+    </div>
     <div id="statsBody" style="display:grid;gap:1rem"></div>
     <p class="hint">Les mots et caractères ne comptent ni les bannières, ni les liens, ni les images. Les personnages sont repérés à partir des lignes de bannière (celles qui commencent par « [] »), même au milieu d'un post, au format « [] Nom - … ». Les noms de personnages sont exclus des mots les plus utilisés.</p>
   </main>
@@ -268,11 +276,13 @@ const toBlob = (bmp, mw, mh, q) => new Promise(ok => {
 });
 async function uploadInto(file, ta, prev) {
   if (!file) return;
+  if (!file.type.startsWith('image/')) return toast('Ce fichier n’est pas une image.');
+  if (file.size > 15 * 1048576) return toast('Image trop lourde (15 Mo maximum).');
   try {
     const bmp = await createImageBitmap(file), id = Math.random().toString(36).slice(2, 12), b = sb.storage.from('images');
     const full = `${me.id}/${id}-full.webp`, thumb = `${me.id}/${id}-thumb.webp`;
-    const r1 = await b.upload(full, await toBlob(bmp, 1600, 1600, .85), { contentType: 'image/webp' });
-    const r2 = await b.upload(thumb, await toBlob(bmp, 400, 150, .8), { contentType: 'image/webp' });
+    const r1 = await b.upload(full, await toBlob(bmp, 1280, 1280, .78), { contentType: 'image/webp' });
+    const r2 = await b.upload(thumb, await toBlob(bmp, 300, 120, .75), { contentType: 'image/webp' });
     if (r1.error || r2.error) throw (r1.error || r2.error);
     const { error } = await sb.from('images').insert({ id, full_path: full, thumb_path: thumb });
     if (error) throw error;
@@ -337,44 +347,72 @@ async function openRoom(r) {
   room = r; firstLoad = true; $('msgs').replaceChildren(h('p', { className: 'hint', textContent: 'Chargement…' })); $('delRoom').hidden = !isAdmin; $('roomTitle').textContent = r.title; $('msgText').value = ''; $('search').value = ''; $('msgPrev').replaceChildren(); countChars();
   $('pRoom').value = r.id; drawPicker(); show('room');
   const { data: rr } = await sb.from('room_reads').select('last_read_at').eq('room_id', r.id).maybeSingle();
-  seenCut = rr ? rr.last_read_at : '1970-01-01'; await markRead(r.id);
-  loadMessages(); loadDraft(); loadRooms();
+  seenCut = rr ? rr.last_read_at : '1970-01-01';
+  loadMessages('last'); loadDraft(); loadRooms();
   if (channel) sb.removeChannel(channel);
-  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, () => { loadMessages(); markRead(r.id); }).subscribe();
+  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, () => loadMessages($('search').value.trim() || page < pages ? undefined : 'last')).subscribe();
 }
 
 // ---------- Messages : affichage, recherche, édition, suppression ----------
-async function loadMessages() {
-  let qy = sb.from('messages').select('id,content,created_at,edited_at,author_id,profiles(pseudo)').eq('room_id', room.id).order('created_at');
-  const q = $('search').value.trim(); if (q) qy = qy.ilike('content', '%' + q.replace(/[%_\\]/g, '\\$&') + '%');
-  const near = innerHeight + scrollY >= document.body.scrollHeight - 200;
-  const { data } = await qy; await ensureImages((data || []).map(m => m.content).join('\n'));
+const PAGE = 20; let page = 1, pages = 1, jump = null, focusId = null;
+async function loadMessages(target) {
+  const q = $('search').value.trim(), near = innerHeight + scrollY >= document.body.scrollHeight - 200;
+  const mk = head => {
+    const b = sb.from('messages').select(head ? 'id' : 'id,content,created_at,edited_at,author_id,profiles(pseudo)', head ? { count: 'exact', head: true } : undefined).eq('room_id', room.id);
+    return q ? b.ilike('content', '%' + q.replace(/[%_\\]/g, '\\$&') + '%') : b;
+  };
+  const { count } = await mk(true); pages = Math.max(1, Math.ceil((count || 0) / PAGE));
+  page = target === 'last' ? pages : Math.min(Math.max(1, target || page), pages);
+  const { data } = await mk(false).order('created_at').order('id').range((page - 1) * PAGE, page * PAGE - 1);
+  await ensureImages((data || []).map(m => m.content).join('\n'));
   const out = [];
   for (const m of data || []) {
     const isNew = m.author_id !== me.id && m.created_at > seenCut;
     const pseudo = m.profiles ? m.profiles.pseudo : '?';
     const head = h('header', {}, h('span', { className: 'ava', textContent: pseudo[0].toUpperCase() }), h('strong', { textContent: pseudo }), h('span', { textContent: new Date(m.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) + (m.edited_at ? ' (modifié)' : '') }), ...(isNew ? [h('span', { className: 'new', textContent: 'Nouveau' })] : []));
     const body = h('div', { className: 'body' }); await render(m.content, body);
-    const d = h('div', { className: 'msg' + (m.author_id === me.id ? ' mine' : '') }, head, body);
+    const d = h('div', { className: 'msg' + (m.author_id === me.id ? ' mine' : '') }, head, body); d.dataset.id = m.id;
+    const bar = h('div', { className: 'row' });
+    if (q) bar.append(h('button', { className: 'alt', textContent: 'Voir dans le RP', onclick: () => jumpTo(m) }));
     if (m.author_id === me.id) {
-      const bar = h('div', { className: 'row' });
       bar.append(h('button', { className: 'alt', textContent: 'Modifier', onclick: () => {
         const ta = h('textarea', { value: m.content }); body.replaceChildren(ta);
         bar.replaceChildren(h('button', { textContent: 'Enregistrer', onclick: async () => {
           const { error } = await sb.from('messages').update({ content: ta.value.trim(), edited_at: new Date().toISOString() }).eq('id', m.id);
-          if (error) toast(error.message); loadMessages(); } }), h('button', { className: 'alt', textContent: 'Annuler', onclick: loadMessages }));
+          if (error) toast(error.message); loadMessages(); } }), h('button', { className: 'alt', textContent: 'Annuler', onclick: () => loadMessages() }));
       } }), h('button', { className: 'alt danger', textContent: 'Supprimer', onclick: async () => { if (confirm('Supprimer ce message ?')) { await sb.from('messages').delete().eq('id', m.id); loadMessages(); } } }));
-      d.append(bar);
     }
+    if (bar.children.length) d.append(bar);
     out.push(d);
   }
   if (!out.length) out.push(h('p', { className: 'hint', textContent: q ? 'Aucun message ne correspond à ta recherche.' : 'Aucun message pour le moment. Écris le premier !' }));
-  $('msgs').replaceChildren(...out);
-  if (firstLoad) { firstLoad = false; const n = $('msgs').querySelector('.new'); if (n) n.closest('.msg').scrollIntoView({ block: 'start' }); else scrollTo(0, document.body.scrollHeight); }
-  else if (near) scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  $('msgs').replaceChildren(...out); drawPager();
+  if (!q && page === pages) markRead(room.id);
+  if (focusId) { const e = $('msgs').querySelector('[data-id="' + focusId + '"]'); focusId = null; if (e) { e.classList.add('focus'); e.scrollIntoView({ block: 'center' }); } }
+  else if (jump === 'top') { jump = null; $('pagerTop').scrollIntoView({ block: 'start' }); }
+  else if (jump === 'bottom') { jump = null; scrollTo(0, document.body.scrollHeight); }
+  else if (firstLoad) { firstLoad = false; const n = $('msgs').querySelector('.new'); if (n) n.closest('.msg').scrollIntoView({ block: 'start' }); else scrollTo(0, document.body.scrollHeight); }
+  else if (near && page === pages) scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
-let st; $('search').oninput = () => { clearTimeout(st); st = setTimeout(loadMessages, 300); };
-$('clearSearch').onclick = () => { $('search').value = ''; loadMessages(); };
+const goPage = n => { jump = 'top'; loadMessages(n); };
+function drawPager() {
+  const mkBar = () => {
+    const nums = [...new Set([1, page - 2, page - 1, page, page + 1, page + 2, pages].filter(n => n >= 1 && n <= pages))].sort((a, b) => a - b), items = []; let prev = 0;
+    const btn = (t, n, off, cur) => h('button', { className: cur ? '' : 'alt', textContent: t, disabled: off || cur, ariaCurrent: cur ? 'page' : null, onclick: () => goPage(n) });
+    for (const n of nums) { if (n - prev > 1) items.push(h('span', { className: 'hint', textContent: '…' })); items.push(btn(n, n, false, n === page)); prev = n; }
+    const go = h('input', { type: 'number', min: 1, max: pages, placeholder: 'Page…', style: 'width:6rem' });
+    go.onkeydown = e => e.key === 'Enter' && go.value && goPage(+go.value);
+    return h('div', { className: 'row pager', style: 'justify-content:center' }, btn('‹', page - 1, page === 1), ...items, btn('›', page + 1, page === pages), go);
+  };
+  for (const id of ['pagerTop', 'pagerBottom']) $(id).replaceChildren(...(pages > 1 ? [mkBar()] : []));
+}
+async function jumpTo(m) {
+  $('search').value = '';
+  const { count } = await sb.from('messages').select('id', { count: 'exact', head: true }).eq('room_id', room.id).lt('created_at', m.created_at);
+  focusId = m.id; loadMessages(Math.floor((count || 0) / PAGE) + 1);
+}
+let st; $('search').oninput = () => { clearTimeout(st); st = setTimeout(() => loadMessages($('search').value.trim() ? 1 : 'last'), 300); };
+$('clearSearch').onclick = () => { $('search').value = ''; loadMessages('last'); };
 
 // ---------- Composer : compteur, envoi, brouillon ----------
 function countChars() { const n = $('msgText').value.length; $('count').textContent = n + ' caractère' + (n > 1 ? 's' : ''); }
@@ -387,7 +425,7 @@ $('send').onclick = async () => {
   const { error } = await sb.from('messages').insert({ room_id: room.id, content });
   if (error) return toast(error.message);
   clearTimeout(draftTimer); await sb.from('drafts').delete().eq('room_id', room.id); draft = null; drawDraft();
-  $('msgText').value = ''; $('msgPrev').replaceChildren(); countChars(); markRead(room.id); loadMessages();
+  $('msgText').value = ''; $('msgPrev').replaceChildren(); countChars(); jump = 'bottom'; loadMessages('last');
 };
 async function saveDraft() {
   clearTimeout(draftTimer); const content = $('msgText').value; if (!room || !content.trim()) return;
@@ -504,64 +542,49 @@ $('bSave').onclick = async () => {
   if (error) return toast(error.message);
   resetBanner(); loadBanners();
 };
-// ---------- Statistiques ----------
-const STOP = new Set('alors aussi avait avant avec cette comme dans donc elle elles encore entre était étaient être fait faire leur leurs mais même moins nous parce pendant plus pour quand sans sera sont sous tout tous toute toutes très vers vous votre cela ceux dont puis ainsi après depuis'.split(' '));
-let statMsgs = [], statImgs = 0;
-function parseBanners(content) {
-  const names = [], keep = [];
-  for (const line of content.split('\n')) {
-    if (/^\s*\[\]/.test(line)) {
-      const n = line.replace(/^\s*\[\]\s*/, '').replace(/\[img:[a-z0-9]+\]/g, ' ').trim().split(/\s+[-–—|]\s+|\s*\[\]/)[0].trim();
-      if (n && !/^https?:/i.test(n)) names.push(n);
-    } else keep.push(line);
-  }
-  return { names, body: keep.join('\n') };
-}
+// ---------- Statistiques (calculées par la base) ----------
 async function loadStats() {
-  $('statsBody').replaceChildren(h('p', { className: 'hint', textContent: 'Calcul en cours…' }));
   const cur = $('statRoom').value;
   $('statRoom').replaceChildren(new Option('Tous les RP', ''), ...rooms.map(r => new Option(r.title, r.id))); $('statRoom').value = cur;
-  statMsgs = []; for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from('messages').select('content,created_at,author_id,room_id,profiles(pseudo)').order('created_at').range(from, from + 999);
-    if (error || !data) break; statMsgs = statMsgs.concat(data); if (data.length < 1000) break;
-  }
-  const { count } = await sb.from('images').select('id', { count: 'exact', head: true }); statImgs = count || 0;
-  drawStats();
+  $('statsBody').replaceChildren(h('p', { className: 'hint', textContent: 'Calcul en cours…' }));
+  loadAdmin();
+  const { data, error } = await sb.rpc('room_stats', { p_room: $('statRoom').value || null });
+  if (error) return $('statsBody').replaceChildren(h('p', { className: 'hint', textContent: 'Statistiques indisponibles : ' + error.message }));
+  drawStats(data);
 }
-$('statRoom').onchange = () => drawStats();
-const topN = (o, n = 10) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
+$('statRoom').onchange = loadStats;
 const bars = (title, ent) => {
   const max = Math.max(1, ...ent.map(e => e[1]));
-  return h('section', { className: 'stat' }, h('h3', { textContent: title }), ...(ent.length ? ent.map(([l, v]) => h('div', { className: 'bar' }, h('span', { textContent: l }), h('i', { style: `width:${Math.round(v / max * 100)}%` }), h('b', { textContent: v.toLocaleString('fr-FR') }))) : [h('p', { className: 'hint', textContent: 'Rien à afficher pour le moment.' })]));
+  return h('section', { className: 'stat' }, h('h3', { textContent: title }), ...(ent.length ? ent.map(([l, v]) => h('div', { className: 'bar' }, h('span', { textContent: l }), h('i', { style: `width:${Math.round(v / max * 100)}%` }), h('b', { textContent: Number(v).toLocaleString('fr-FR') }))) : [h('p', { className: 'hint', textContent: 'Rien à afficher pour le moment.' })]));
 };
-function drawStats() {
-  const rid = $('statRoom').value, ms = statMsgs.filter(m => !rid || m.room_id === rid);
-  const auth = {}, authW = {}, chars = {}, disp = {}, words = {}, months = {}, roomP = {}, days = Array(7).fill(0), hours = Array(24).fill(0);
-  const DN = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'], titles = Object.fromEntries(rooms.map(r => [r.id, r.title]));
-  const nameWords = new Set(statMsgs.flatMap(m => parseBanners(m.content).names).flatMap(n => n.toLowerCase().split(/[\s'’\-]+/)).filter(w => w.length >= 3));
-  let W = 0, C = 0, longest = null;
-  for (const m of ms) {
-    const pb = parseBanners(m.content);
-    pb.names.forEach(c => { const k = c.toLowerCase(); disp[k] = disp[k] || c; chars[k] = (chars[k] || 0) + 1; });
-    const body = pb.body.replace(/\[img:[a-z0-9]+\]|https?:\/\/\S+/g, ' ');
-    const n = body.split(/\s+/).filter(Boolean).length, who = m.profiles ? m.profiles.pseudo : '?', d = new Date(m.created_at);
-    W += n; C += body.trim().length; auth[who] = (auth[who] || 0) + 1; authW[who] = (authW[who] || 0) + n;
-    roomP[titles[m.room_id] || '?'] = (roomP[titles[m.room_id] || '?'] || 0) + 1;
-    for (const w of body.toLowerCase().match(/[a-zà-ÿœ]{5,}/g) || []) if (!STOP.has(w) && !nameWords.has(w)) words[w] = (words[w] || 0) + 1;
-    const key = m.created_at.slice(0, 7); months[key] = (months[key] || 0) + 1;
-    days[(d.getDay() + 6) % 7]++; hours[d.getHours()]++;
-    if (!longest || n > longest.n) longest = { n, who };
-  }
+function drawStats(d) {
+  const fr = n => Number(n).toLocaleString('fr-FR'), maxI = a => a.indexOf(Math.max(...a));
+  const DN = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const tile = (l, v) => h('div', { className: 'tile' }, h('b', { textContent: v }), h('span', { textContent: l }));
-  const fr = n => n.toLocaleString('fr-FR'), maxI = a => a.indexOf(Math.max(...a));
-  const monthEnt = Object.keys(months).sort().slice(-12).map(k => [new Date(k + '-01').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }), months[k]]);
+  const months = (d.months || []).map(([k, p]) => [new Date(k + '-01').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }), p]);
   $('statsBody').replaceChildren(
-    h('div', { className: 'tiles' }, tile('posts', fr(ms.length)), tile('mots', fr(W)), tile('caractères', fr(C)), tile('mots par post', ms.length ? fr(Math.round(W / ms.length)) : '0'),
-      tile('images hébergées', fr(statImgs)), ...(ms.length ? [tile('heure la plus active', maxI(hours) + ' h'), tile('jour le plus actif', DN[maxI(days)]), tile('post le plus long', fr(longest.n) + ' mots (' + longest.who + ')')] : [])),
+    h('div', { className: 'tiles' }, tile('posts', fr(d.posts)), tile('mots', fr(d.words)), tile('caractères', fr(d.chars)), tile('mots par post', d.posts ? fr(Math.round(d.words / d.posts)) : '0'), tile('images hébergées', fr(d.images)),
+      ...(d.posts ? [tile('heure la plus active', maxI(d.hours) + ' h'), tile('jour le plus actif', DN[maxI(d.days)]), tile('post le plus long', fr(d.longest.n) + ' mots (' + d.longest.who + ')')] : [])),
     h('div', { className: 'stats2' },
-      bars('Posts par auteur', topN(auth)), bars('Mots par auteur', topN(authW)), bars('Personnages les plus utilisés', topN(chars).map(([k, v]) => [disp[k], v])),
-      bars('Posts par RP', topN(roomP)), bars('Mots les plus utilisés (5 lettres et +)', topN(words)), bars('Activité par mois', monthEnt), bars('Posts par jour de la semaine', DN.map((n, i) => [n, days[i]]))));
+      bars('Posts par auteur', d.authors.map(a => [a[0], a[1]])), bars('Mots par auteur', d.authors.map(a => [a[0], a[2]]).sort((x, y) => y[1] - x[1])),
+      bars('Personnages les plus utilisés', d.characters), bars('Posts par RP', d.rooms), bars('Mots les plus utilisés (5 lettres et +)', d.topwords),
+      bars('Activité par mois', months), bars('Posts par jour de la semaine', DN.map((n, i) => [n, d.days[i]]))));
 }
+async function loadAdmin() {
+  $('adminBox').hidden = !isAdmin; if (!isAdmin) return;
+  const { data, error } = await sb.rpc('admin_usage'); if (error) return;
+  const MB = 1048576, row = (l, v, max) => h('div', { className: 'bar' }, h('span', { textContent: l }), h('i', { style: `width:${Math.min(100, Math.round(v / max * 100))}%` }), h('b', { textContent: Math.round(v / MB) + ' Mo / ' + Math.round(max / MB) + ' Mo' }));
+  $('usage').replaceChildren(row('Base de données', data.db_bytes, 500 * MB), row('Images', data.storage_bytes, 1024 * MB),
+    h('p', { className: 'hint', textContent: `${data.messages} messages, ${data.images} images (${data.files} fichiers). Limites de l'offre gratuite, valeurs approximatives.` }));
+}
+$('cleanImgs').onclick = async () => {
+  const { data, error } = await sb.rpc('orphan_images'); if (error) return toast(error.message);
+  if (!data.length) return toast('Aucune image inutilisée.');
+  if (!confirm(data.length + ' image(s) inutilisée(s) vont être supprimées définitivement. Continuer ?')) return;
+  await sb.storage.from('images').remove(data.flatMap(i => [i.full_path, i.thumb_path]));
+  await sb.from('images').delete().in('id', data.map(i => i.id));
+  toast('Nettoyage terminé.'); loadAdmin();
+};
 
 // ---------- Ressources : arbres FamilyEcho et tableaux Pinterest ----------
 let resources = [];
