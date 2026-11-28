@@ -122,6 +122,7 @@ details.vars .stat{margin-top:.5rem}
     <button class="alt" id="toRes">Ressources</button>
     <button class="alt" id="toStats">Statistiques</button>
     <button class="alt" id="logout">Se déconnecter</button>
+    <span class="hint">version 28 nov. (c)</span>
   </aside>
 
   <main id="homeView">
@@ -352,7 +353,7 @@ async function newRoom() {
 }
 $('newRoom').onclick = newRoom;
 const marked = {};
-const markRead = (id, ts) => { if (!ts || (marked[id] && marked[id] >= ts)) return; marked[id] = ts; return sb.from('room_reads').upsert({ user_id: me.id, room_id: id, last_read_at: ts }); };
+const markRead = (id, ts) => { if (!ts || (marked[id] && marked[id] >= ts)) return; marked[id] = ts; return sb.from('room_reads').upsert({ user_id: me.id, room_id: id, last_read_at: ts }).then(r => { if (r.error) { delete marked[id]; console.warn('Lecture non enregistrée', r.error.message); } }); };
 
 async function openRoom(r) {
   if (room && $('msgText').value.trim()) await saveDraft();
@@ -508,7 +509,7 @@ function insertBanner(b, content) {
   const lead = !before || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
   const inserted = lead + content + '\n\n';
   t.value = before + inserted + after; t.dispatchEvent(new Event('input'));
-  b.last_used_at = new Date().toISOString(); sb.from('banners').update({ last_used_at: b.last_used_at }).eq('id', b.id);
+  b.last_used_at = new Date().toISOString(); sb.from('banners').update({ last_used_at: b.last_used_at }).eq('id', b.id).then(() => {});
   $('picker').hidden = true; t.focus(); t.setSelectionRange((before + inserted).length, (before + inserted).length);
 }
 function chooseLook(b) {
