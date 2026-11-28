@@ -89,6 +89,11 @@ details.vars summary{cursor:pointer;color:var(--muted);font-size:.9rem;width:fit
 details.vars[open] summary{color:var(--text)}
 details.vars .stat{margin-top:.5rem}
 .msg.focus{outline:2px solid var(--gold)}
+.mosaic{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.8rem;margin-top:.6rem}
+.charcard{background:#121a1d;border:1px solid var(--line);border-radius:6px;padding:.7rem;display:grid;gap:.4rem;justify-items:center;text-align:center;align-content:start}
+.charcard img{width:100%;height:110px;object-fit:contain;border-radius:4px}
+.charcard .ava{width:64px;height:64px;font-size:1.6rem}
+.charcard strong{font-family:Literata,Georgia,serif}
 @media(max-width:700px){
   #app,.compose{grid-template-columns:1fr}
   aside{position:static;height:auto;display:flex;overflow-x:auto;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
@@ -168,6 +173,12 @@ details.vars .stat{margin-top:.5rem}
 
   <main id="statsView" hidden>
     <h2>Statistiques</h2>
+    <section class="stat" id="charSection">
+      <h3>Personnages les plus utilisés</h3>
+      <select id="charRoom" aria-label="RP" style="max-width:280px"></select>
+      <div id="charGrid" class="mosaic"></div>
+    </section>
+    <h3>Statistiques générales</h3>
     <select id="statRoom" aria-label="RP" style="max-width:280px"></select>
     <div id="adminBox" class="stat" hidden style="display:grid;gap:.5rem">
       <strong>Utilisation de l'hébergement (administrateur)</strong>
@@ -340,7 +351,8 @@ async function newRoom() {
   await loadRooms(); openRoom(data);
 }
 $('newRoom').onclick = newRoom;
-const markRead = id => sb.from('room_reads').upsert({ user_id: me.id, room_id: id, last_read_at: new Date().toISOString() });
+const marked = {};
+const markRead = (id, ts) => { if (!ts || (marked[id] && marked[id] >= ts)) return; marked[id] = ts; return sb.from('room_reads').upsert({ user_id: me.id, room_id: id, last_read_at: ts }); };
 
 async function openRoom(r) {
   if (room && $('msgText').value.trim()) await saveDraft();
@@ -349,25 +361,46 @@ async function openRoom(r) {
   const { data: rr } = await sb.from('room_reads').select('last_read_at').eq('room_id', r.id).maybeSingle();
   seenCut = rr ? rr.last_read_at : '1970-01-01';
   loadMessages('last'); loadDraft(); loadRooms();
-  if (channel) sb.removeChannel(channel);
-  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, () => loadMessages($('search').value.trim() || page < pages ? undefined : 'last')).subscribe();
+  liveSeen = new Set(); lastTotal = -1; subscribeRoom(r);
 }
 
 // ---------- Messages : affichage, recherche, édition, suppression ----------
-const PAGE = 20; let page = 1, pages = 1, jump = null, focusId = null;
+const PAGE = 20; let page = 1, pages = 1, jump = null, focusId = null, lastTotal = -1, liveSeen = new Set(), busy = false, again = false;
+const refresh = () => loadMessages($('search').value.trim() || page < pages ? undefined : 'last');
+function subscribeRoom(r) {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('room-' + r.id).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_id=eq.' + r.id }, p => {
+    if (p.eventType === 'INSERT' && p.new && !document.hidden) liveSeen.add(p.new.id);
+    refresh();
+  }).subscribe(status => {
+    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && room && room.id === r.id) setTimeout(() => room && room.id === r.id && subscribeRoom(r), 3000);
+  });
+}
+// Filet de sécurité : vérifie toutes les 20 s s'il y a du nouveau, et se met à jour au retour sur l'onglet
+setInterval(async () => {
+  if (!room || document.hidden || $('roomView').hidden || $('search').value.trim()) return;
+  const { count } = await sb.from('messages').select('id', { count: 'exact', head: true }).eq('room_id', room.id);
+  if (lastTotal !== -1 && count !== lastTotal) refresh();
+}, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && room && !$('roomView').hidden) refresh(); });
 async function loadMessages(target) {
+  if (busy) { again = target === undefined ? again || 'cur' : target; return; }
+  busy = true; try { await loadMessagesNow(target); } finally { busy = false; }
+  if (again) { const t = again === 'cur' ? undefined : again; again = false; loadMessages(t); }
+}
+async function loadMessagesNow(target) {
   const q = $('search').value.trim(), near = innerHeight + scrollY >= document.body.scrollHeight - 200;
   const mk = head => {
     const b = sb.from('messages').select(head ? 'id' : 'id,content,created_at,edited_at,author_id,profiles(pseudo)', head ? { count: 'exact', head: true } : undefined).eq('room_id', room.id);
     return q ? b.ilike('content', '%' + q.replace(/[%_\\]/g, '\\$&') + '%') : b;
   };
-  const { count } = await mk(true); pages = Math.max(1, Math.ceil((count || 0) / PAGE));
+  const { count } = await mk(true); pages = Math.max(1, Math.ceil((count || 0) / PAGE)); if (!q) lastTotal = count || 0;
   page = target === 'last' ? pages : Math.min(Math.max(1, target || page), pages);
   const { data } = await mk(false).order('created_at').order('id').range((page - 1) * PAGE, page * PAGE - 1);
   await ensureImages((data || []).map(m => m.content).join('\n'));
   const out = [];
   for (const m of data || []) {
-    const isNew = m.author_id !== me.id && m.created_at > seenCut;
+    const isNew = m.author_id !== me.id && m.created_at > seenCut && !liveSeen.has(m.id);
     const pseudo = m.profiles ? m.profiles.pseudo : '?';
     const head = h('header', {}, h('span', { className: 'ava', textContent: pseudo[0].toUpperCase() }), h('strong', { textContent: pseudo }), h('span', { textContent: new Date(m.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) + (m.edited_at ? ' (modifié)' : '') }), ...(isNew ? [h('span', { className: 'new', textContent: 'Nouveau' })] : []));
     const body = h('div', { className: 'body' }); await render(m.content, body);
@@ -387,7 +420,7 @@ async function loadMessages(target) {
   }
   if (!out.length) out.push(h('p', { className: 'hint', textContent: q ? 'Aucun message ne correspond à ta recherche.' : 'Aucun message pour le moment. Écris le premier !' }));
   $('msgs').replaceChildren(...out); drawPager();
-  if (!q && page === pages) markRead(room.id);
+  if (!q && page === pages && !document.hidden && data && data.length) markRead(room.id, data[data.length - 1].created_at);
   if (focusId) { const e = $('msgs').querySelector('[data-id="' + focusId + '"]'); focusId = null; if (e) { e.classList.add('focus'); e.scrollIntoView({ block: 'center' }); } }
   else if (jump === 'top') { jump = null; $('pagerTop').scrollIntoView({ block: 'start' }); }
   else if (jump === 'bottom') { jump = null; scrollTo(0, document.body.scrollHeight); }
@@ -547,9 +580,10 @@ async function loadStats() {
   const cur = $('statRoom').value;
   $('statRoom').replaceChildren(new Option('Tous les RP', ''), ...rooms.map(r => new Option(r.title, r.id))); $('statRoom').value = cur;
   $('statsBody').replaceChildren(h('p', { className: 'hint', textContent: 'Calcul en cours…' }));
-  loadAdmin();
+  loadAdmin(); loadChars();
   const { data, error } = await sb.rpc('room_stats', { p_room: $('statRoom').value || null });
   if (error) return $('statsBody').replaceChildren(h('p', { className: 'hint', textContent: 'Statistiques indisponibles : ' + error.message }));
+  const ig = await sb.from('ignored_words').select('word').order('word'); ignored = (ig.data || []).map(x => x.word);
   drawStats(data);
 }
 $('statRoom').onchange = loadStats;
@@ -557,6 +591,28 @@ const bars = (title, ent) => {
   const max = Math.max(1, ...ent.map(e => e[1]));
   return h('section', { className: 'stat' }, h('h3', { textContent: title }), ...(ent.length ? ent.map(([l, v]) => h('div', { className: 'bar' }, h('span', { textContent: l }), h('i', { style: `width:${Math.round(v / max * 100)}%` }), h('b', { textContent: Number(v).toLocaleString('fr-FR') }))) : [h('p', { className: 'hint', textContent: 'Rien à afficher pour le moment.' })]));
 };
+let ignored = [];
+const wordsCard = ent => {
+  const max = Math.max(1, ...ent.map(e => e[1]));
+  return h('section', { className: 'stat' }, h('h3', { textContent: 'Mots les plus utilisés (5 lettres et +)' }),
+    ...(ent.length ? ent.map(([w, v]) => h('div', { className: 'bar', style: 'grid-template-columns:minmax(80px,1fr) 2fr auto auto' }, h('span', { textContent: w }), h('i', { style: `width:${Math.round(v / max * 100)}%` }), h('b', { textContent: Number(v).toLocaleString('fr-FR') }),
+      h('button', { className: 'alt', textContent: '✕', title: 'Ne plus compter ce mot (par exemple un nom de personnage)', ariaLabel: 'Ignorer le mot ' + w, onclick: async () => { const { error } = await sb.from('ignored_words').insert({ word: w }); if (error) toast(error.message); loadStats(); } })))
+      : [h('p', { className: 'hint', textContent: 'Rien à afficher pour le moment.' })]),
+    ...(ignored.length ? [h('details', { className: 'vars' }, h('summary', { textContent: ignored.length + ' mot' + (ignored.length > 1 ? 's ignorés' : ' ignoré') }),
+      h('div', { className: 'row' }, ...ignored.map(w => h('button', { className: 'alt', textContent: w + ' ✕', title: 'Rétablir ce mot', onclick: async () => { await sb.from('ignored_words').delete().eq('word', w); loadStats(); } }))))] : []));
+};
+async function loadChars() {
+  const cur = $('charRoom').value;
+  $('charRoom').replaceChildren(new Option('Tous les RP', ''), ...rooms.map(r => new Option(r.title, r.id))); $('charRoom').value = cur;
+  const { data, error } = await sb.rpc('character_stats', { p_room: $('charRoom').value || null });
+  if (error) return $('charGrid').replaceChildren(h('p', { className: 'hint', textContent: 'Indisponible : ' + error.message }));
+  const url = p => sb.storage.from('images').getPublicUrl(p).data.publicUrl;
+  $('charGrid').replaceChildren(...((data || []).length ? data.map(c => h('div', { className: 'charcard' },
+    c.thumb ? h('img', { src: url(c.thumb), alt: c.name, loading: 'lazy' }) : h('div', { className: 'ava', textContent: c.name[0].toUpperCase() }),
+    h('strong', { textContent: c.name }), h('span', { className: 'hint', textContent: c.count + (c.count > 1 ? ' utilisations' : ' utilisation') })))
+    : [h('p', { className: 'hint', textContent: 'Aucun personnage pour le moment.' })]));
+}
+$('charRoom').onchange = loadChars;
 function drawStats(d) {
   const fr = n => Number(n).toLocaleString('fr-FR'), maxI = a => a.indexOf(Math.max(...a));
   const DN = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -567,7 +623,7 @@ function drawStats(d) {
       ...(d.posts ? [tile('heure la plus active', maxI(d.hours) + ' h'), tile('jour le plus actif', DN[maxI(d.days)]), tile('post le plus long', fr(d.longest.n) + ' mots (' + d.longest.who + ')')] : [])),
     h('div', { className: 'stats2' },
       bars('Posts par auteur', d.authors.map(a => [a[0], a[1]])), bars('Mots par auteur', d.authors.map(a => [a[0], a[2]]).sort((x, y) => y[1] - x[1])),
-      bars('Personnages les plus utilisés', d.characters), bars('Posts par RP', d.rooms), bars('Mots les plus utilisés (5 lettres et +)', d.topwords),
+      bars('Posts par RP', d.rooms), wordsCard(d.topwords),
       bars('Activité par mois', months), bars('Posts par jour de la semaine', DN.map((n, i) => [n, d.days[i]]))));
 }
 async function loadAdmin() {
